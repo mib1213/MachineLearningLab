@@ -1,0 +1,28 @@
+@misc{chatgpt_decision_boundary_plot,
+  author       = {{OpenAI ChatGPT}},
+  title        = {Plot manueller Entscheidungsflächen für Penguin-Daten},
+  year         = {2025},
+  howpublished = {\url{https://chat.openai.com/}},
+  note         = {Erstellt mit GPT-5 am 2025-11-12. Prompt:
+  "Erstelle in Python (mit numpy, pandas, matplotlib und seaborn) einen Plot, der die Entscheidungsflächen einer einfachen manuellen Regel für die Palmer Penguins zeigt.
+  Die Regel lautet:
+  def dt_rule(row):
+      if row.flipper_length_mm > 206.5:
+          return 'Gentoo'
+      elif row.bill_length_mm > 43.35:
+          return 'Chinstrap'
+      else:
+          return 'Adelie'
+  Zeichne die Entscheidungsflächen, Grenzen (x=206.5, y=43.35, gestrichelt) und Punkte (nach y_true gefärbt) mit halbtransparenter Fläche (alpha=0.25) und sns.scatterplot."}
+}
+
+@misc{chatgpt_manual_rules_tree,
+  author       = {{OpenAI ChatGPT}},
+  title        = {Python-Code zur Visualisierung eines manuell definierten Entscheidungsbaums mit Graphviz},
+  year         = {2025},
+  howpublished = {\url{https://chat.openai.com/}},
+  note         = {Erstellt mit GPT-5 am 2025-11-12. Prompt:
+  "Erstelle in Python einen Graphviz-Plot, der einen manuell definierten Entscheidungsbaum für die Penguin-Daten zeigt.
+  Die Knoten sollen einfache Regeln wie flipper_length_mm ≤ 206.5 enthalten, die Blätter sollen Klassenlabels mit Statistik-Infos (n und bedingte Wahrscheinlichkeit) anzeigen.
+  Verwende dafür eine Funktion, die Masken erzeugt (rule_masks) und eine zweite Funktion, die die Labels mit Statistik berechnet (label_with_stats)."}
+}
