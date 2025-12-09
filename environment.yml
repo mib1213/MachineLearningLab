@@ -18,3 +18,4 @@ dependencies:
   - catboost
   - pip
   - jinja2
+  - ipywidgets
