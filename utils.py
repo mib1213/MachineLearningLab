@@ -1,11 +1,13 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 import scipy.stats as stats
-from statsmodels.tools import add_constant
+import matplotlib.colors as mcolors
+from sklearn.model_selection import StratifiedKFold, LeaveOneOut, cross_validate, cross_val_predict
+from sklearn.metrics import confusion_matrix
+from sklearn.tree import export_graphviz
+from graphviz import Digraph, Source
 
 def show_missing_values(df):
     def min_or_nan(col):
@@ -38,72 +40,6 @@ def show_missing_values(df):
 
     return missing_df.style.apply(color_row, axis=1)
 
-def impute_mmm(series):
-    series = series.dropna()
-    mean = series.mean()
-    median = series.median()
-    mode = series.mode().values[0]
-    count = series.count()
-    mean_count = (series == mean).sum()
-    median_count = (series == median).sum()
-    mode_count = (series == mode).sum()
-    mean_perc = (mean_count / count) * 100
-    median_perc = (median_count / count) * 100
-    mode_perc = (mode_count / count) * 100
-    lower_bound = series.quantile(0.25)
-    upper_bound = series.quantile(0.75)
-    iqr = upper_bound - lower_bound
-    lower_outliers_mask = series < (lower_bound - 1.5 * iqr)
-    upper_outliers_mask = series > (upper_bound + 1.5 * iqr)
-    outliers_mask = lower_outliers_mask | upper_outliers_mask
-    series_without_outliers = series[~outliers_mask]
-    mean_without_outliers = series_without_outliers.mean()
-    median_without_outliers = series_without_outliers.median()
-    mode_without_outliers = series_without_outliers.mode().values[0]
-    count_without_outliers = series_without_outliers.count()
-    mean_count_without_outliers = (series_without_outliers == mean_without_outliers).sum()
-    median_count_without_outliers = (series_without_outliers == median_without_outliers).sum()
-    mode_count_without_outliers = (series_without_outliers == mode_without_outliers).sum()
-    mean_perc_without_outliers = (mean_count_without_outliers / count_without_outliers) * 100
-    median_perc_without_outliers = (median_count_without_outliers / count_without_outliers) * 100
-    mode_perc_without_outliers = (mode_count_without_outliers / count_without_outliers) * 100
-    return pd.DataFrame({
-        'Statistics': ['Mean', 'Median', 'Mode', 'Mean without Outliers', 'Median without Outliers', 'Mode without Outliers'],
-        'Value': [mean, median, mode, mean_without_outliers, median_without_outliers, mode_without_outliers],
-        'Count': [mean_count, median_count, mode_count, mean_count_without_outliers, median_count_without_outliers, mode_count_without_outliers],
-        'Percentage': [mean_perc, median_perc, mode_perc, mean_perc_without_outliers, median_perc_without_outliers, mode_perc_without_outliers]
-    }).set_index('Statistics')
-
-def plot_top_categories(series, n=10, ax=None, title=None):
-    if ax is None:
-        ax = plt.gca()
-    top_categories = series.value_counts().head(n).index
-    sns.countplot(x=series, order=top_categories, ax=ax)
-    if title:
-        ax.set_title(title)
-    ax.set_ylabel('Frequency')
-    for p in ax.patches:
-        height = p.get_height()
-        ax.annotate(f'{int(height)}',
-                    (p.get_x() + p.get_width() / 2, height),
-                    ha='center', va='bottom',
-                    xytext=(0, 3),
-                    textcoords='offset points')
-    ax.tick_params(axis='y', which='both', left=False, labelleft=False)
-
-def plot_histogram(series, gap=5, ax=None, title=None):
-    if ax is None:
-        ax = plt.gca()
-    sns.histplot(series, bins=int(series.max() - series.min()), kde=True, ax=ax)
-    if title:
-        ax.set_title(title)
-    mean = series.mean()
-    median = series.median()
-    ax.axvline(mean, color='red', linestyle='dashed', linewidth=2, label=f'{mean = :.2f}')
-    ax.axvline(median, color='green', linestyle='dashed', linewidth=2, label=f'{median = :.2f}')
-    ax.set_xticks(range(int(series.min()), int(series.max()), gap))
-    ax.legend()
-
 def show_outliers(series):
     q1 = series.quantile(0.25)
     q3 = series.quantile(0.75)
@@ -113,62 +49,6 @@ def show_outliers(series):
     outliers = series[(series < lower_bound) | (series > upper_bound)]
     return outliers
 
-def show_mar_relation(df, target_col, top_n=10, gap=5):
-    if target_col not in df.columns:
-        raise KeyError(f"Target column '{target_col}' not in DataFrame")
-    if df[target_col].isna().sum() == 0:
-        return f'No missing values in {target_col}'
-    not_missing = df[df[target_col].notnull()]
-    missing = df[df[target_col].isnull()]
-    for col in df.columns:
-        if col == target_col:
-            continue 
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-        if pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_bool_dtype(df[col]):
-            plot_func = plot_histogram
-        else:
-            plot_func = plot_top_categories 
-        plot_func(not_missing[col].dropna(), ax=axes[0])
-        axes[0].set_title(f"{col} (target not missing)")
-        plot_func(missing[col].dropna(), ax=axes[1])
-        axes[1].set_title(f"{col} (target missing)")
-        plt.tight_layout()
-
-def impute_random(series, random_seed=None):
-    imputed_series = series.copy()
-    missing_mask = imputed_series.isna()
-    n_missing = missing_mask.sum()
-    if n_missing == 0:
-        return imputed_series
-    imputed_values = series.dropna().sample(n_missing, replace=True, random_state=random_seed)
-    imputed_series[missing_mask] = imputed_values.values
-    return imputed_series
-
-def convert_to_categorical(df, columns):
-    df_ = df.copy()
-    for col in columns:
-        assert col in df.columns, f"Column {col} is not present in df"
-        df_[col] = df_[col].astype('object')
-    return df_
-
-def get_column_name_mapping(file_path):
-    return pd.read_csv(file_path, index_col='old').new.to_dict()
-
-def create_column_name_mapping(df, file_path):
-    df = pd.DataFrame({'old': df.columns, 'new': '', 'is_categorical': ''})
-    df.to_csv(file_path, index=False)
-
-def get_categorical_columns(file_path):
-    df = pd.read_csv(file_path).dropna().astype({'is_categorical': bool})
-    return df[df.is_categorical].new.tolist()
-
-def do_basic_cleaning(df):
-    df_ = df.copy().drop_duplicates()
-    new_column_names = get_column_name_mapping('column_name_mapping.csv')
-    df_ = df_.rename(columns=new_column_names)
-    categorical_columns = get_categorical_columns('column_name_mapping.csv')
-    df_ = convert_to_categorical(df_, categorical_columns)
-    return df_
 
 def cramers_v(x, y):
     contingency_table = pd.crosstab(x, y)
@@ -246,16 +126,6 @@ def correlation_heatmap(matrix, title=None, cmap='Oranges', min=None):
     return ax
 
 def cat_corr_heatmap(matrix):
-    # accessible_orange = '#CF4B00'
-    # healthy_orange = '#EC6602'
-    # healthy_orange_50 = '#F9B591'
-    # healthy_orange_25 = '#FDDDCB'
-    # neutral_cream = '#FFF4E6'
-    # custom_cmap = LinearSegmentedColormap.from_list(
-    #     None, 
-    #     [neutral_cream, healthy_orange_25, healthy_orange, accessible_orange],
-    #     N=256
-    # )
     ax = correlation_heatmap(matrix, title="Cramers V", cmap='Blues', min=0)
     cbar = ax.collections[0].colorbar
     cbar.set_ticks([0, 0.5, 1])
@@ -263,219 +133,331 @@ def cat_corr_heatmap(matrix):
     plt.show()
 
 def num_corr_heatmap(matrix):
-    # accessible_orange = '#CF4B00'
-    # healthy_orange = '#EC6602'
-    # healthy_orange_50 = '#F9B591'
-    # healthy_orange_25 = '#FDDDCB'
-    # neutral_cream = '#FFF4E6'
-    # siemens_petrol_25 = '#C8E6E6'
-    # siemens_petrol_50 = '#87D2D2'
-    # siemens_petrol = '#009999'
-    # sh_black_10 = '#E6E6E6'
-    # custom_cmap = LinearSegmentedColormap.from_list(
-    #     None, 
-    #     [siemens_petrol, siemens_petrol_50, siemens_petrol_25, sh_black_10, healthy_orange_25, healthy_orange_50, healthy_orange],
-    #     N=256
-    # )
     ax = correlation_heatmap(matrix, title="Pearson", cmap='coolwarm', min=-1)
     cbar = ax.collections[0].colorbar
     cbar.set_ticks([-1, 0, 1])
     cbar.set_ticklabels(["-1", "0", "1"])
     plt.show()
 
-def plot_bar_against(df, with_col, num_cols, hue=None, title=None):
+# Funktionen die später verwendet werden
+
+def plot_confusion_matrix(cm, classes, title='Confusion matrix'):
     """
-    Mean bar plot for a single categorical column against all numerical columns.
+    Erstellt eine Konfusionsmatrix.
     """
-    ncols = 5
-    nrows = (len(num_cols) + ncols - 1) // ncols
-
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 3.5 * nrows))
-
-    axes = axes.flatten()
-
-    for i, col in enumerate(num_cols):
-        sns.barplot(x=with_col, y=col, data=df, errorbar='sd', ax=axes[i], estimator='mean', hue=hue)
-    if title:
-        fig.suptitle(title)
-    else:
-        fig.suptitle(f'Mean by {with_col}')
-
-    plt.tight_layout()
+    sns.heatmap(cm, annot=True, xticklabels=classes, yticklabels=classes, cmap='Oranges', fmt='d')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(title)
     plt.show()
 
-def check_normality(series):
+def skfcv(model, X, y, k=5, metrics=['accuracy', 'f1_macro', 'precision_macro', 'recall_macro'], train_score=False, random_seed=42, cm=True):
     """
-    Check normality of a series using four different tests along with a Q-Q plot and a histogram.
+    Berechnet Metriken mittels stratified k-Fold Kreuzvalidierung und Konfusionsmatrix mit cross_val_predict.
     """
-    _, ax = plt.subplots(1, 2, figsize=(12, 6))
-    stats.probplot(series, plot=ax[0], rvalue=True);
-    ax[0].set_title('Q-Q Plot')
-    sns.histplot(series, bins=30, kde=True, ax=ax[1]);
-    ax[1].set_title('Histogram with KDE')
-    plt.show()
-    _, p = stats.shapiro(series)
-    print(f"Shapiro-Wilk normality test: p-value = {p:.4f}")
-    _, p = stats.normaltest(series)
-    print(f"D'Agostino's K^2 normality test: p-value = {p:.4f}")
-    _, p = stats.kstest((series - series.mean()) / series.std(), 'norm')
-    print(f"Kolmogorov-Smirnov normality test: p-value = {p:.4f}")
-    anderson = stats.anderson(series)
-    print(f"Anderson-Darling normality test: statistic = {anderson.statistic:.4f}, critical value = {anderson.critical_values[2]:.4f}")
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_seed)
+    cv = cross_validate(model, X, y, cv=skf, scoring=metrics, return_train_score=train_score)
+    if not cm:
+        return dict(cv=cv)
+    y_pred = cross_val_predict(model, X, y, cv=skf)
+    labels = np.unique(y_pred)
+    cm = confusion_matrix(y, y_pred, labels=labels)
+    return dict(cv=cv, cm=cm)
 
-def check_homogeneity(df, groupby, column):
-    sns.boxplot(data=df, x=groupby, y=column)
-    plt.show()
-    cats = [df[df[groupby] == cat][column] for cat in df[groupby].unique()]
-    levene = stats.levene(*cats, center='mean')
-    print(f"Levene test statistic: {levene.statistic}, p-value = {levene.pvalue}")
-    brown_forsythe = stats.levene(*cats, center='median')
-    print(f"Brown-Forsythe test statistic: {brown_forsythe.statistic}, p-value = {brown_forsythe.pvalue}")
-    bartlett = stats.bartlett(*cats)
-    print(f"Bartlett test statistic: {bartlett.statistic}, p-value = {bartlett.pvalue}")
-
-def plot_strip_against(df, with_col, num_cols, hue=None, title=None):
+def pipeline(df, features):
     """
-    Strip plot for a single categorical column against all numerical columns.
+    Erstellt einen Pipeline-Datensatz, indem fehlende Werte in den angegebenen Merkmalen entfernt werden.
     """
-    ncols = 5
-    nrows = (len(num_cols) + ncols - 1) // ncols
+    df_copy = df.copy(deep=True)
+    df_copy = df_copy.dropna(subset=features)
+    return df_copy[features], df_copy['species']
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 3.5 * nrows))
-
-    axes = axes.flatten()
-
-    for i, col in enumerate(num_cols):
-        ax = axes[i]
-        sns.stripplot(x=with_col, y=col, data=df, ax=ax, hue=hue, alpha=0.8, dodge=True)
-        ax.legend_.remove()
-    if title:
-        fig.suptitle(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-def plot_line_against(df, with_col, num_cols, title=None):
+def loocv(model, X, y, metrics=['accuracy'], train_score=False):
     """
-    Line plot for a single categorical column against all numerical columns.
+    Führt Leave-One-Out Kreuzvalidierung durch und berechnet die angegebenen Metriken.
     """
-    ncols = 5
-    nrows = (len(num_cols) + ncols - 1) // ncols
+    loo = LeaveOneOut()
+    return cross_validate(model, X, y, cv=loo, scoring=metrics, return_train_score=train_score)
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 3.5 * nrows))
-
-    axes = axes.flatten()
-
-    for i, col in enumerate(num_cols):
-        ax = axes[i]
-        sns.lineplot(x=with_col, y=col, data=df, ax=ax, errorbar='sd')
-    if title:
-        fig.suptitle(title)
-    plt.tight_layout()
-    plt.show()
-
-def plot_point_against(df, with_col, num_cols, hue=None, title=None):
+def print_cv(cv, time=False):
     """
-    Point plot for a single categorical column against all numerical columns.
+    Gibt die Mittelwerte und Standardabweichungen der Kreuzvalidierungsergebnisse aus.
     """
-    ncols = 5
-    nrows = (len(num_cols) + ncols - 1) // ncols
+    for key, values in cv.items():
+        if not time and 'time' in key:
+            continue
+        print(f"{key}: {values.mean():.4f} ± {values.std():.4f}")
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 3.5 * nrows))
+def plot_dt(dtc):
+    """
+    Visualisiert einen Entscheidungsbaum.
+    """
+    dot_data = export_graphviz(
+        dtc,
+        out_file=None,
+        feature_names=dtc.feature_names_in_,
+        class_names=dtc.classes_,
+        filled=True,
+        rounded=True,
+        special_characters=True
+    )
+    return Source(dot_data)
+def get_leaf_masks(X):
+    bl = X["bill_length_mm"]
+    bd = X["bill_depth_mm"]
 
-    axes = axes.flatten()
+    mask0 = (bl <= 43.25) & (bd <= 14.8)
+    mask1 = (bl <= 43.25) & (bd >  14.8)
+    mask2 = (bl >  43.25) & (bd <= 16.45)
+    mask3 = (bl >  43.25) & (bd >  16.45)
 
-    for i, col in enumerate(num_cols):
-        ax = axes[i]
-        sns.pointplot(x=with_col, y=col, data=df, ax=ax, errorbar='sd', hue=hue)
-        if i != 0:
-            ax.legend_.remove()
-    if title:
-        fig.suptitle(title)
-    plt.tight_layout()
-    plt.show()
+    return {0: mask0, 1: mask1, 2: mask2, 3: mask3}
 
-def plot_regression_results(X, y, results):
-    
-    fig, ax = plt.subplots(1, 3, figsize=(18, 6))
 
-    # Plot 1: Regression plot
-    sns.regplot(x=X, y=y, ax=ax[0])
-    ax[0].set_title("Regression Plot")
+def leaf_stats(X, y):
+    masks = get_leaf_masks(X)
+    classes = np.unique(y)
 
-    # Plot 2: Residuals
-    sns.residplot(x=X, y=y, lowess=True, ax=ax[1])
-    ax[1].set_title("Residuals Plot")
-    ax[1].set_ylabel("Residuals")
+    stats = {}
 
-    # Plot 3: Predicted vs Actual
-    y_pred = results.predict(add_constant(X))
-    sns.scatterplot(x=y, y=y_pred, ax=ax[2])
-    lims = [min(y.min(), y_pred.min()), max(y.max(), y_pred.max())]
-    ax[2].plot(lims, lims, '--', color='b')  # Reference line
-    ax[2].set_title("Predicted vs Actual")
-    ax[2].set_xlabel("Actual")
-    ax[2].set_ylabel("Predicted")
+    for leaf_id, m in masks.items():
+        y_leaf = y[m]
+        n = len(y_leaf)
 
-    plt.tight_layout()
-    plt.show()
-    
-def check_homoscedasticity(model):
-    from statsmodels.stats.outliers_influence import OLSInfluence
-    from statsmodels.stats.diagnostic import (
-        het_breuschpagan,
-        het_arch,
-        het_white,
-        het_goldfeldquandt
+        if n == 0:
+            probs = {c: 0.0 for c in classes}
+            maj = None
+        else:
+            probs = {c: (y_leaf == c).mean() for c in classes}
+            maj = max(probs, key=probs.get)
+
+        stats[leaf_id] = {
+            "count": n,
+            "probs": probs,
+            "majority_class": maj
+        }
+
+    return stats, classes
+
+
+# =========================
+# 3. Baum-Plot mit Graphviz
+# =========================
+def plot_manual_tree(X, y):
+    stats, classes = leaf_stats(X, y)
+
+    # Farben für Klassen
+    colors = {
+        "Adelie":    "#8dd3c7",
+        "Gentoo":    "#ffffb3",
+        "Chinstrap": "#fb8072"
+    }
+
+    dot = Digraph()
+    dot.attr(rankdir="TB")  # Top-Bottom-Baum
+
+    # Innere Knoten (genau deine Bedingungen)
+    dot.node("root",        "bill_length_mm <= 43.25?", shape='rect')
+    dot.node("left_depth",  "bill_depth_mm <= 14.8?",   shape='rect')
+    dot.node("right_depth", "bill_depth_mm <= 16.45?",  shape='rect')
+
+    # Blätter: 0, 1, 2, 3
+    for leaf_id in [0, 1, 2, 3]:
+        info = stats[leaf_id]
+        n = info["count"]
+        probs = info["probs"]
+        maj = info["majority_class"]
+
+        if maj is None:
+            fillcolor = "#ffffff"
+            cls_label = "empty"
+        else:
+            fillcolor = colors.get(maj, "#ffffff")
+            cls_label = maj
+
+        prob_lines = "\n".join(
+            [f"p({c}) = {probs[c]:.2f}" for c in classes]
+        )
+        label = f"{cls_label}\ncount = {n}\n{prob_lines}"
+
+        dot.node(
+            f"leaf{leaf_id}",
+            label=label,
+            style="filled",
+            fillcolor=fillcolor,
+            shape='box3d'
+        )
+
+    # Kanten: True immer "links" im logischen Sinne
+    # Root: bill_length_mm <= 43.25?
+    dot.edge("root", "left_depth",  label="True")
+    dot.edge("root", "right_depth", label="False")
+
+    # Linker Split: bill_depth_mm <= 14.8?
+    dot.edge("left_depth", "leaf0", label="True")
+    dot.edge("left_depth", "leaf1", label="False")
+
+    # Rechter Split: bill_depth_mm <= 16.45?
+    dot.edge("right_depth", "leaf2", label="True")
+    dot.edge("right_depth", "leaf3", label="False")
+
+    return dot
+
+def make_grid(X, padding=1.0, n_grid=400):
+    """
+    Erzeugt xx, yy und grid_df aus einem 2D-Feature-DataFrame X.
+    """
+    f1, f2 = X.columns[0], X.columns[1]
+    x_min, x_max = X[f1].min() - padding, X[f1].max() + padding
+    y_min, y_max = X[f2].min() - padding, X[f2].max() + padding
+
+    xx, yy = np.meshgrid(
+        np.linspace(x_min, x_max, n_grid),
+        np.linspace(y_min, y_max, n_grid)
     )
 
-    # Standardisierte Residuen
-    influence = OLSInfluence(model)
-    standardized_resid = influence.resid_studentized_internal
+    grid_df = pd.DataFrame(
+        np.c_[xx.ravel(), yy.ravel()],
+        columns=[f1, f2]
+    )
+    return xx, yy, grid_df, f1, f2
+def plot_decision_surface(
+    X_train_2d,
+    y_train_2d,
+    *,
+    model=None,                 # z.B. gnb oder knn (sklearn)
+    model_name=None,            # Titel im Plot
+    X_test_2d=None,
+    y_test_2d=None,
+    which_points="train",       # "train" oder "test"
+    use_train_test_range=False, # True => Achsenbereich aus Train+Test
+    manual=False,               # True => manuelles Modell
+    manual_rules=None,
+    get_leaf_masks=None,
+    ax=None,
+    cmap="viridis",
+    vmin=0.0,
+    vmax=1.0,
+    padding=1.0,
+    n_grid=400
+):
+    """
+    Zeichnet Decision-Surface + Punkte (Train oder Test).
 
-    # Zwei Plots nebeneinander
-    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    - Für sklearn-Modelle: model.predict_proba + model.predict
+    - Für manuelles Modell: manual=True, manual_rules, get_leaf_masks
+    """
+    # 1. Welche Punkte sollen als Scatter gezeigt werden?
+    if which_points == "test":
+        if X_test_2d is None or y_test_2d is None:
+            raise ValueError("Für which_points='test' müssen X_test_2d und y_test_2d übergeben werden.")
+        X_points = X_test_2d
+        y_points = y_test_2d
+    else:
+        X_points = X_train_2d
+        y_points = y_train_2d
 
-    # 1. Residuals vs Fitted (standardisiert)
-    sns.residplot(x=model.fittedvalues, y=standardized_resid, lowess=True, ax=ax[0])
-    ax[0].set_xlabel('Fitted values')
-    ax[0].set_ylabel('Standardized Residuals')
-    ax[0].set_title('Residuals vs Fitted Values')
+    # 2. Für die Achsen: nur Train oder Train+Test?
+    if use_train_test_range and (X_test_2d is not None):
+        X_for_bounds = pd.concat([X_train_2d, X_test_2d])
+    else:
+        X_for_bounds = X_train_2d
 
-    # 2. Scale-Location Plot
-    sns.residplot(x=model.fittedvalues, y=np.sqrt(np.abs(standardized_resid)), lowess=True, ax=ax[1])
-    ax[1].set_xlabel('Fitted values')
-    ax[1].set_ylabel('√|Standardized Residuals|')
-    ax[1].set_title('Scale-Location Plot')
+    # 3. Grid erzeugen
+    xx, yy, grid_df, f1, f2 = make_grid(X_for_bounds, padding=padding, n_grid=n_grid)
 
-    plt.tight_layout()
-    plt.show()
+    # 4. Klassen
+    classes = np.unique(y_train_2d)
+    palette = dict(zip(classes, sns.color_palette("tab10", len(classes))))
 
-    # Breusch-Pagan-Test
-    bp_test = het_breuschpagan(model.resid, model.model.exog)
-    print(f'Breusch-Pagan test statistic: p-value = {bp_test[1]:.4f}')
-    print(f'F-statistic: p-value = {bp_test[3]:.4f}')
+    # 5. Hintergrund: proba_max und Entscheidungsgrenzen
+    if not manual:
+        if model is None:
+            raise ValueError("Für manual=False muss ein sklearn-Modell übergeben werden (model).")
 
-    # ARCH-Test
-    arch_test = het_arch(model.resid)
-    print(f'ARCH test statistic: p-value = {arch_test[1]:.4f}')
-    print(f'F-statistic: p-value = {arch_test[3]:.4f}')
+        # Sicherheit: Modell ist gefittet – falls nicht, hier fitten
+        # (Wenn du sicher bist, dass es schon gefittet ist, kannst du das auch rausnehmen)
+        try:
+            _ = model.classes_
+        except AttributeError:
+            model.fit(X_train_2d, y_train_2d)
 
-    # White-Test
-    white_test = het_white(model.resid, model.model.exog)
-    print(f'White test statistic: p-value = {white_test[1]:.4f}')
-    print(f'F-statistic: p-value = {white_test[3]:.4f}')
+        proba = model.predict_proba(grid_df)
+        proba_max = proba.max(axis=1).reshape(xx.shape)
 
-    # Goldfeld-Quandt-Test
-    gq_test = het_goldfeldquandt(model.resid, model.model.exog)
-    print(f'Goldfeld-Quandt test statistic: p-value = {gq_test[1]:.4f}')
+        Z_labels = model.predict(grid_df)
+        Z_numeric = pd.Categorical(Z_labels, categories=classes).codes
+        Z_numeric = Z_numeric.reshape(xx.shape)
 
-    return {
-        'breusch_pagan_p': bp_test[1],
-        'breusch_pagan_f_p': bp_test[3],
-        'arch_p': arch_test[1],
-        'arch_f_p': arch_test[3],
-        'white_p': white_test[1],
-        'white_f_p': white_test[3],
-        'goldfeld_quandt_p': gq_test[1]
-    }
+    else:
+        # Manuelles Modell:
+        if manual_rules is None or get_leaf_masks is None:
+            raise ValueError("Für manual=True müssen manual_rules und get_leaf_masks übergeben werden.")
+
+        # Blatt-Statistik auf TRAIN-Daten
+        masks_train = get_leaf_masks(X_train_2d)
+        stats = {}
+        for leaf_id, m in masks_train.items():
+            y_leaf = y_train_2d[m]
+            n = len(y_leaf)
+            if n == 0:
+                probs = {c: 0.0 for c in classes}
+                maj = None
+            else:
+                probs = {c: (y_leaf == c).mean() for c in classes}
+                maj = max(probs, key=probs.get)
+            stats[leaf_id] = {
+                "count": n,
+                "probs": probs,
+                "majority_class": maj
+            }
+
+        # Blatt-Confidence = p(Mehrheitsklasse im Blatt)
+        leaf_confidence = {}
+        for leaf_id, info in stats.items():
+            maj = info["majority_class"]
+            if maj is None:
+                leaf_confidence[leaf_id] = 0.0
+            else:
+                leaf_confidence[leaf_id] = info["probs"][maj]
+
+        # Blatt-ID pro Gridpunkt
+        masks_grid = get_leaf_masks(grid_df)
+        leaf_id_grid = np.empty(len(grid_df), dtype=int)
+        for leaf_id, m in masks_grid.items():
+            leaf_id_grid[m.values] = leaf_id  # m ist eine Series-Bool-Maske
+
+        proba_max = np.array([leaf_confidence[l] for l in leaf_id_grid]).reshape(xx.shape)
+
+        # Klassenlabels per manual_rules
+        Z_labels = grid_df.apply(manual_rules, axis=1).values
+        Z_numeric = pd.Categorical(Z_labels, categories=classes).codes
+        Z_numeric = Z_numeric.reshape(xx.shape)
+
+    # 6. Plot vorbereiten
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+    cont = ax.contourf(xx, yy, proba_max, alpha=0.7, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.contour(xx, yy, Z_numeric, levels=np.unique(Z_numeric), colors="black", linewidths=1)
+
+    sns.scatterplot(
+        x=X_points.iloc[:, 0],
+        y=X_points.iloc[:, 1],
+        hue=y_points,
+        palette=palette,
+        edgecolor="black",
+        s=60,
+        ax=ax
+    )
+
+    if model_name is None:
+        model_name = "Modell"
+
+    punkt_text = "Train" if which_points == "train" else "Test"
+    ax.set_title(f"{model_name} – {punkt_text}daten")
+    ax.set_xlabel(X_points.columns[0])
+    ax.set_ylabel(X_points.columns[1])
+    ax.legend(title="Class", loc="lower right")
+
+    return cont, ax
