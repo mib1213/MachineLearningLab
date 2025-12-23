@@ -1,0 +1,737 @@
+\documentclass[12pt,a4paper]{article}
+
+% ----- Sprache, Encoding, Typografie -----
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\linespread{1.06}
+%\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.3cm,bottom=2.3cm]{geometry}
+\usepackage{microtype}
+
+% ----- Mathe, Tabellen, Grafiken -----
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{parskip}
+\usepackage{xurl}      % bessere URL-Umbrüche
+\urlstyle{same}        % URL-Schrift wie Text
+
+
+% Absätze ohne Einzug
+\setlength{\parindent}{0pt}
+
+% Bilder global etwas kleiner (überschreibbar pro Figure)
+\setkeys{Gin}{width=0.7\linewidth, keepaspectratio}
+
+% Weniger Weißraum um Floats
+\setlength{\floatsep}{10pt}
+\setlength{\textfloatsep}{12pt}
+\setlength{\intextsep}{10pt}
+\captionsetup{font=small}
+
+% ----- Listen kompakter -----
+\usepackage{enumitem}
+\setlist[itemize]{noitemsep,topsep=4pt,leftmargin=*}
+
+% ----- Code Listings -----
+\usepackage{xcolor}
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  keywordstyle=\bfseries,
+  basicstyle=\ttfamily\small,
+  sensitive=false,
+  comment=[l]{\#},
+  commentstyle=\color{gray},
+  stringstyle=\color{black},
+  morestring=[b]``,
+  morestring=[b]''
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  rulecolor=\color{black!20},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false
+}
+
+% ----- Literatur -----
+\usepackage[numbers]{natbib}
+\bibliographystyle{plainnat}
+
+% ----- Links / Querverweise -----
+\usepackage[hidelinks]{hyperref}
+\usepackage[nameinlink,capitalise]{cleveref}
+
+% ----- Safe include (crasht nicht bei falschen Dateinamen) -----
+\newcommand{\safeimg}[2][]{%
+  \IfFileExists{figs/#2}{%
+    \includegraphics[#1]{\detokenize{figs/#2}}%
+  }{%
+    \fbox{\parbox{0.92\linewidth}{\small \textbf{Fehlende Datei:} \texttt{figs/#2}\\
+    (Hinweis: Dateiname/Endung prüfen, Leerzeichen ggf.\ umbenennen)}}%
+  }%
+}
+
+% =========================================================
+\begin{document}
+
+% =========================================================
+\begin{titlepage}
+  \centering
+  {\Large Technische Hochschule Ingolstadt}\\[6pt]
+  {\large Studiengang: Data Science in Technik und Wirtschaft}\\[28pt]
+
+  {\huge \textbf{Palmer Penguins Klassifikation}}\\[8pt]
+  {\LARGE \textbf{Von EDA zur Modellauswahl}}\\[28pt]
+
+  {\large Seminararbeit Machine Learning Lab}\\[22pt]
+
+  \begin{tabular}{ll}
+    Autor: & Mirza Muhammad Omer Baig \\
+    Matrikelnummer: & 00 \\
+    Abgabedatum: & 21.12.2025\\
+  \end{tabular}
+
+  \vfill
+
+  % ----- Abstract -----
+\begin{minipage}{0.88\textwidth}
+  \textbf{Abstract}\\[6pt]
+  Diese Arbeit verfolgt kein konkretes Anwendungsziel, sondern dient als \textbf{didaktischer Referenzfall} für einen sauberen, übertragbaren
+  Workflow in Klassifikationsprojekten. Die eigentliche Vorhersageaufgabe steht nicht im Vordergrund, sondern die Frage, wie man eine Modellierung
+  so strukturiert, dass Entscheidungen transparent begründet werden können und die Ergebnisse fair bewertet bleiben.
+  Als Beispiel wird der Palmer Penguins Datensatz verwendet, weil er reale Feldmessungen, eine überschaubare Featuremenge und gleichzeitig
+  überlappende Klassen enthält und damit typische Entscheidungssituationen (Featureauswahl, Modellvergleich, Fehleranalyse) realistisch abbildet.
+  Das Ergebnis ist ein kompakter \textbf{Blueprint} von der Datenanalyse bis zur finalen Evaluation für vergleichbare Fragestellungen, der sich auf andere Anwendungsfälle übertragen
+  und dort je nach Kontext erweitern lässt. Aus Platzgründen können nicht alle Abbildungen, Zwischenschritte und Implementierungsdetails in dieser Arbeit dargestellt werden;
+  sie sind im begleitenden Notebook~\citep{project-notebook}, im Repository~\citep{project-repo} und auf der interaktiven Webseite~\citep{project-website}
+  vollständig dokumentiert und frei zugänglich.
+\end{minipage}
+
+  \vfill
+\end{titlepage}
+
+% =========================================================
+\tableofcontents
+\newpage
+
+% =========================================================
+\section*{Langschwanzpinguine (Pygoscelis)}
+
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.32\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{Adelie.png}
+    \caption{Adelie}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.32\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{Chinstrap.png}
+    \caption{Chinstrap}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.32\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{Gentoo.png}
+    \caption{Gentoo}
+  \end{subfigure}
+  \caption{Beispielbilder der drei Klassen (generiert mit ChatGPT)}
+\end{figure}
+
+\begin{figure}[!htb]
+  \centering
+  \safeimg{culmen_depth.png}
+  \caption{Illustration der Schnabelmessung \citep{horst-artwork}}
+\end{figure}
+
+% =========================================================
+\section{Einleitung}
+
+Ziel dieser Arbeit ist es, die Pinguinart vorherzusagen. Dabei liegt der Schwerpunkt ganz klar auf einer transparenten und gut nachvollziehbaren Modellierung.
+\textbf{Interpretierbarkeit} hat Vorrang vor reiner Vorhersageleistung. Machine Learning wird nur dann eingesetzt, wenn klassische, leicht nachvollziehbare statistische Verfahren an ihre Grenzen stoßen.
+
+\subsection{Daten}
+
+Der Datensatz \texttt{palmerpenguins}~\cite{palmerpenguins} basiert auf realen Feldmessungen, die ursprünglich von \citet{gorman-uaf} im Rahmen des Palmer Station Long Term Ecological Research (LTER) Programms in der Antarktis~\cite{palmer-lter} erhoben und anschließend öffentlich zur Verfügung gestellt wurden.
+
+\subsection{Überblick}
+\begin{table}[!htb]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrl}
+\toprule
+\texttt{species} & \texttt{island} & \texttt{bill\_length\_mm} & \texttt{bill\_depth\_mm} & \texttt{flipper\_length\_mm} & \texttt{body\_mass\_g} & \texttt{sex} \\
+\midrule
+Adelie & Torgersen & 39.1 & 18.7 & 181 & 3750 & Male \\
+Adelie & Torgersen & 39.5 & 17.4 & 186 & 3800 & Female \\
+Adelie & Torgersen & 40.3 & 18.0 & 195 & 3250 & Female \\
+Adelie & Torgersen & nan & nan & nan & nan & nan \\
+Adelie & Torgersen & 36.7 & 19.3 & 193 & 3450 & Female \\
+\bottomrule
+\end{tabular}
+\caption{Ausschnitt aus \texttt{df.head ()}}%
+\label{tab:head}
+\end{table}
+
+\subsection{Featurebeschreibung}
+Der Palmer Penguins Datensatz enthält morphologische Messungen von 344 Pinguinen aus der Antarktis \citep{palmerpenguins}.
+
+\subsubsection{Zielvariable}
+\begin{description}
+  \item[\texttt{species}] Kategoriale Zielvariable mit drei Klassen: \texttt{Adelie}, \texttt{Chinstrap}, \texttt{Gentoo}
+\end{description}
+
+\subsubsection{Numerische Merkmale}
+\begin{description}
+  \item[\texttt{bill\_length\_mm}] Länge des Schnabels in Millimetern
+  \item[\texttt{bill\_depth\_mm}] Tiefe (Höhe) des Schnabels in Millimetern
+  \item[\texttt{flipper\_length\_mm}] Länge der Flosse in Millimetern
+  \item[\texttt{body\_mass\_g}] Körpergewicht in Gramm
+\end{description}
+
+\subsubsection{Kategoriale Merkmale}
+\begin{description}
+  \item[\texttt{sex}] Geschlecht des Pinguins (Werte: \texttt{male}, \texttt{female})
+  \item[\texttt{island}] Insel (Werte: \texttt{Biscoe}, \texttt{Dream}, \texttt{Torgersen})
+\end{description}
+
+\subsection{Train-Test Split}
+Ganz am Anfang trennen wir das Testset (20\%) stratifiziert vollständig ab, um jegliche Form von Data Leakage zu vermeiden.
+Im gesamten Notebook arbeiten wir ausschließlich mit den Trainingsdaten. Das Testset wird erst am Ende verwendet, um die finale Modellperformance zu evaluieren.
+
+% =========================================================
+\section{Explorative Datenanalyse}
+
+\subsection{Klassenverteilung}
+\begin{figure}[!htb]
+  \centering
+  \safeimg{image-5.png}
+  \caption{Klassenverteilung}%
+  \label{fig:class-dist}
+\end{figure}
+
+Die Klassen sind leicht ungleich verteilt. Oversampling Verfahren (z.B. SMOTE \citep{chawla2002smote} von \texttt{imbalanced-learn} \citep{imbalancedlearn}) wären möglich, werden hier aber erst dann eingesetzt, wenn das Ungleichgewicht tatsächlich ein relevantes Problem in der Modellperformance erzeugt.
+
+\subsection{Fehlende Werte}
+\begin{figure}[!htb]
+  \centering
+  \safeimg{image-1.png}
+  \caption{Fehlende Werte (Übersicht)}%
+  \label{fig:missing-overview}
+\end{figure}
+
+\begin{figure}[!htb]
+  \centering
+  \safeimg{image-2.png}
+  \caption{MSNO Matrix (missingno)}%
+  \label{fig:msno-matrix}
+\end{figure}
+
+Abbildung~\ref{fig:missing-overview} zeigt, dass für alle vier numerischen Messungen jeweils zwei Werte fehlen.
+Zusätzlich fehlen elf Werte für das Feature \texttt{sex}. Man sieht in der MSNO Matrix (\ref{fig:msno-matrix}), dass bei denselben zwei Datenpunkten nicht nur alle vier numerischen Messungen fehlen, sondern auch das Geschlecht. Daher würde ich diese Datenpunkte einfach droppen. 
+Für Produktions-/Testfälle wäre alternativ eine transparente Fallback-Logik möglich (z.B. ``keine Vorhersage'' oder Majoritätsklasse), ohne dem Modell unrealistische imputierte Muster beizubringen. 
+Für eine detaillierte Diskussion, siehe \citep{project-notebook}.
+
+\subsection{Visualisierungen}
+
+\subsubsection{Numerische Features}
+\begin{figure}[!htb]
+  \centering
+  \safeimg{image-6.png}
+  \caption{Pair-Plot numerischer Features}%
+  \label{fig:pairplot}
+\end{figure}
+
+Abbildung~\ref{fig:pairplot} zeigt, dass \texttt{bill\_length\_mm} bereits eine relativ gute Trennung zwischen allen drei Arten ermöglicht.
+Bei Kombinationen ohne \texttt{bill\_length\_mm} lässt sich Gentoo weiterhin gut unterscheiden, während Adelie und Chinstrap stärker überlappen.
+Auf der Hauptdiagonalen wirken die Feature-Verteilungen innerhalb der Klassen näherungsweise normalverteilt.
+
+\subsubsection{Kategorische Features}
+\begin{figure}[!htb]
+  \centering
+  \safeimg[width=0.72\linewidth]{image-7.png}
+  \caption{Kategorische Features}%
+  \label{fig:cat-features}
+\end{figure}
+
+In Abbildung~\ref{fig:cat-features} fällt auf, dass für \texttt{island} ein klarer Zusammenhang erkennbar ist:
+Wenn \texttt{island = Torgersen}, ist die Art in der Stichprobe immer \texttt{Adelie}.
+Damit wirkt \texttt{island} grundsätzlich als potenziell hilfreiches Feature, wobei offen bleibt, wie stark dieser Effekt
+in Kombination mit den morphologischen Messungen tatsächlich trägt. 
+Dieses Feature wirkt auf den ersten Blick trivial, erfordert jedoch eine sorgfältige Einordnung; eine ausführliche Diskussion findet sich in \citep{project-notebook}.
+
+Für \texttt{sex} ergibt sich dagegen kein nennenswerter Zusammenhang mit \texttt{species}:
+Innerhalb jeder Art sind männliche und weibliche Tiere ungefähr gleich häufig vertreten.
+\textbf{Hinweis:} Das schließt nicht aus, dass \texttt{sex} in Kombination mit anderen Merkmalen indirekt nützlich sein könnte.
+Daher bleibt das Feature an dieser Stelle zunächst im Datensatz.
+
+\subsubsection{Numerisch x Kategorisch (multivariat)}
+\begin{figure}[!htb]
+  \centering
+  \safeimg{image-9.png}
+  \caption{Multivariate Darstellung (6 Dimensionen)}%
+  \label{fig:multivariate}
+\end{figure}
+
+In dieser Visualisierung lassen sich insgesamt sechs Dimensionen gleichzeitig darstellen:
+\begin{itemize}
+  \item \texttt{sex} in den Zeilen
+  \item \texttt{island} in den Spalten
+  \item \texttt{bill\_length\_mm} auf der x-Achse
+  \item \texttt{bill\_depth\_mm} auf der y-Achse
+  \item \texttt{body\_mass\_g} über die Punktgröße
+  \item \texttt{species} über die Farbe
+\end{itemize}
+
+Bereits auf den ersten Blick wird deutlich, dass \texttt{sex} praktisch keine zusätzliche Aussagekraft besitzt,
+selbst in Kombination mit mehreren anderen Variablen. Auch ein klarer Einfluss von \texttt{body\_mass\_g} ist kaum erkennbar.
+Wobei der Einfluss von \texttt{island} \emph{hier} schwieriger zu beurteilen ist; der 3D-Plot \citep{3d_scatter_plot} zeigt jedoch deutlich,
+dass \texttt{island} auch in Anwesenheit von \texttt{bill\_length\_mm} und \texttt{bill\_depth\_mm} kaum noch zur Trennung beiträgt.
+Als potenzielle Kernfeatures bleiben daher \texttt{bill\_length\_mm}, \texttt{bill\_depth\_mm} und \texttt{flipper\_length\_mm}.
+
+
+\subsection{Korrelationsmatrix}
+\begin{figure}[!htb]
+  \centering
+  \safeimg[width=0.5\linewidth]{image-10.png}
+  \caption{Pearson Korrelation (numerische Features)}%
+  \label{fig:pearson}
+\end{figure}
+
+Die Pearson-Korrelation in Abbildung~\ref{fig:pearson} zeigt, dass die lineare Korrelation zwischen \texttt{flipper\_length\_mm} und \texttt{bill\_length\_mm} moderat bis stark ausgeprägt ist, was auf teilweise redundante Information hindeutet.
+Für eine Auswahl von nur zwei Merkmalen spricht dies dafür, \texttt{bill\_length\_mm} mit \texttt{bill\_depth\_mm} zu kombinieren, anstatt mit \texttt{flipper\_length\_mm}.
+
+\subsection{Feature Engineering}
+Es wurden zwei neue Features getestet: \texttt{bill\_prop} (Verhältnis Schnabellänge zu Schnabeltiefe) und
+\texttt{length\_ratio} (Verhältnis Schnabellänge zu Flipperlänge). Eine klare Verbesserung der Trennschärfe ist dabei nicht zu erkennen. Für Details siehe \citep{project-notebook}.
+
+\subsection{Outliers}
+Eine Analyse nach der 1,5 IQR Regel zeigt keine auffälligen Ausreißer in den betrachteten Features \citep{project-notebook}.
+
+% =========================================================
+\section{Modellierung und Modellauswahl}
+
+\subsection{Evaluation Setup}
+Alle Modellentscheidungen basieren ausschließlich auf Trainingsdaten. Zur Einordnung werden genutzt:
+\begin{itemize}
+  \item LOOCV als sehr genauer Schätzer für \texttt{accuracy} bei kleinem Datensatz
+  \item Stratifizierte 10 Fold CV für stabile klassenweise Metriken (Macro F1, Precision/Recall) und Konfusionsmatrix
+\end{itemize}
+Die Wahl der Evaluationsmetriken, insbesondere die Verwendung von \texttt{accuracy} im Rahmen der LOOCV, wird im begleitenden Notebook begründet~\citep{project-notebook}.
+
+\subsection{Gaussian Naive Bayes (GNB)}
+GNB ist in diesem Kontext attraktiv, weil die verwendeten Features stetig sind und die Feature Verteilungen innerhalb der Klassen näherungsweise normalverteilt wirken~\cite{3d_kde_surface}.
+Gleichzeitig trifft das Modell eine zentrale Annahme: bedingte Unabhängigkeit der Features gegeben der Klasse.
+
+\begin{itemize}
+  \item Vorteile: sehr transparent, schnell, probabilistisches Modell, gute Baseline
+  \item Nachteile: Unabhängigkeitsannahme, sensitiv gegenüber Verteilungsannahmen
+\end{itemize}
+
+Wir starten mit \texttt{bill\_length\_mm} und \texttt{bill\_depth\_mm}. Als Prior wird $1/3$ pro Klasse gesetzt. 
+Das heißt, dass alle Klassen unabhängig von ihrer Häufigkeit im Datensatz gleich wahrscheinlich sind. Die zugrunde liegende Annahme ist dabei, dass eine größere Anzahl an Messungen für eine bestimmte Art im Datensatz nicht zwangsläufig bedeutet, dass diese Art auch in der Realität häufiger vorkommt.
+
+\subsubsection*{LOOCV}
+\begin{itemize}
+  \item \texttt{train\_accuracy}: 0.9450 $\pm$ 0.0007
+  \item \texttt{validation\_accuracy}: 0.9414 $\pm$ 0.2349
+\end{itemize}
+
+\subsubsection*{CV und Konfusionsmatrix}
+
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{image-14.png}
+    \caption{Konfusionsmatrix (CV)}%
+    \label{fig:gnb-cm}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{image-13.png}
+    \caption{Entscheidungsgrenze}%
+    \label{fig:gnb-db}
+  \end{subfigure}
+  \caption{GNB:\@ Konfusionsmatrix und Entscheidungsgrenze}%
+  \label{fig:gnb-combined}
+\end{figure}
+
+\begin{itemize}
+  \item \texttt{validation\_accuracy}: 0.9454 $\pm$ 0.0371
+  \item \texttt{validation\_f1\_macro}: 0.9292 $\pm$ 0.0499
+  \item \texttt{validation\_precision\_macro}: 0.9373 $\pm$ 0.0452
+  \item \texttt{validation\_recall\_macro}: 0.9304 $\pm$ 0.0550
+\end{itemize}
+
+Abbildung~\ref{fig:gnb-cm} zeigt, dass die Klasse \texttt{Chinstrap} mit anderen Klassen verwechselt wird.
+
+\subsection*{Entscheidungsgrenze}
+
+Abbildung~\ref{fig:gnb-db} zeigt die Entscheidungsgrenze des GNB-Modells. Aufgrund der zugrunde liegenden Normalverteilungsannahme werden Beobachtungen, die weit vom jeweiligen Klassenmittelpunkt entfernt liegen, systematisch geringer gewichtet und werden komplett ignoriert.
+Die Klasse \texttt{Chinstrap} ist dadurch strukturell schwerer zu trennen und wird entsprechend häufiger verwechselt.
+
+
+\subsection{k-Nearest Neighbors (kNN)}
+kNN setzt voraus, dass Abstände im Feature-Raum sinnvoll sind. Daher ist Skalierung essenziell.
+\begin{itemize}
+  \item Vorteile: flexible Entscheidungsgrenze, oft sehr gute Performance, wenig Modellannahmen
+  \item Nachteile: langsamere Inferenz, schwer interpretierbar, \textit{Curse of Dimensionality} in hohen Dimensionen \citep{James2023ISLPython}
+\end{itemize}
+
+\subsubsection*{Auswahl von $k$}
+\begin{figure}[!htb]
+  \centering
+  \safeimg[width=0.5\linewidth]{kNeighbors.png}
+  \caption{kNN:\@ Auswahl von $k$ per LOOCV}%
+  \label{fig:knn-k}
+\end{figure}
+
+Abbildung~\ref{fig:knn-k} zeigt, dass die Validation Accuracy im Bereich $[7:15]$ relativ stabil bleibt. Man würde hier eher $k = 15$ wählen, da ein etwas größeres $k$ in der Regel besser generalisiert.
+
+\subsubsection*{LOOCV Feature-Permutation}
+\begin{itemize}
+  \item Features: \texttt{[bill\_length\_mm, bill\_depth\_mm, flipper\_length\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9744 $\pm$ 0.0006
+      \item \texttt{validation\_accuracy}: 0.9744 $\pm$ 0.1581
+    \end{itemize}
+  \item Features: \texttt{[bill\_length\_mm, bill\_depth\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9669 $\pm$ 0.0009
+      \item \texttt{validation\_accuracy}: 0.9634 $\pm$ 0.1879
+    \end{itemize}
+  \item Features: \texttt{[bill\_length\_mm, flipper\_length\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9526 $\pm$ 0.0011
+      \item \texttt{validation\_accuracy}: 0.9524 $\pm$ 0.2130
+    \end{itemize}
+\end{itemize}
+
+Obwohl die beste Performance mit allen drei Features erreicht wird, ist die Kombination von \texttt{bill\_length\_mm} und \texttt{bill\_depth\_mm} auch sehr gut und bietet den Vorteil der Interpretierbarkeit. \texttt{bill\_length\_mm} und \texttt{flipper\_length\_mm} schneiden etwas schlechter ab.
+
+\textbf{Anmerkung}: Da ich k auf denselben Trainingsdaten auswähle, auf denen ich danach LOOCV berechne, können die Ergebnisse leicht optimistisch sein.
+Für die ideale Vorgehensweise siehe \citep{project-repo}.
+
+\subsubsection*{SHAP (modellanagnostisch)}
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.4\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{shap_knn_adelie.png}
+    \caption{Klasse Adelie}
+  \end{subfigure}
+  \begin{subfigure}{0.4\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{shap_knn_chinstrap.png}
+    \caption{Klasse Chinstrap}
+  \end{subfigure}
+  \begin{subfigure}{0.4\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{shap_knn_gentoo.png}
+    \caption{Klasse Gentoo}
+  \end{subfigure}
+  \caption{SHAP:\@ kNN}%
+  \label{fig:shap-knn}
+\end{figure}
+
+Abbildung~\ref{fig:shap-knn} zeigt, dass die wichtigsten Features in allen drei Klassen entweder \texttt{bill\_length\_mm} oder \texttt{bill\_depth\_mm} sind, wenn wir das Modell mit allen drei Features verwenden. Das bestätigt unseren Eindruck aus der vorherigen Analyse, dass diese beiden Merkmale wichtiger sind als \texttt{flipper\_length\_mm}.
+
+\subsubsection*{CV und Konfusionsmatrix}
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{knn_confusion_matrix.png}
+    \caption{kNN:\@ Konfusionsmatrix (CV)}%
+    \label{fig:knn-cm}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{knn_decision_boundary.png}
+    \caption{kNN:\@ Entscheidungsgrenze}%
+    \label{fig:knn-db}
+  \end{subfigure}
+  \caption{kNN:\@ Konfusionsmatrix und Entscheidungsgrenze}%
+  \label{fig:knn-combined}
+\end{figure}
+
+\begin{itemize}
+  \item \texttt{validation\_accuracy}: 0.9636 $\pm$ 0.0360
+  \item \texttt{validation\_f1\_macro}: 0.9506 $\pm$ 0.0478
+  \item \texttt{validation\_precision\_macro}: 0.9689 $\pm$ 0.0369
+  \item \texttt{validation\_recall\_macro}: 0.9417 $\pm$ 0.0536
+\end{itemize}
+
+Abbildung~\ref{fig:knn-cm} zeigt, dass das Modell insgesamt gut generalisiert. Die Validation Accuracy und die Precision sind sehr hoch, während der Recall etwas schlechter ausfällt. Das bedeutet, dass das Modell mehr False Negatives produziert.
+
+Dieses Verhalten lässt sich sehr wahrscheinlich auf die Klasse Chinstrap zurückführen. Das Modell übersieht diese Klasse häufiger, als dass es sie fälschlicherweise erkennt. Konkret wurde Chinstrap neun Mal übersehen und nur einmal falsch vorhergesagt. Aus der Analyse mit Naive Bayes wissen wir bereits, dass diese Klasse strukturell schwieriger zu unterscheiden ist, was unter anderem auch mit ihrem geringeren Vorkommen im Datensatz zusammenhängen kann (Klassenungleichgewicht).
+
+\subsection*{Entscheidungsgrenze}
+
+Die Entscheidungsgrenze in Abbildung~\ref{fig:knn-db} sieht insgesamt sehr sinnvoll aus. Die Bereiche wo GNB Probleme hatte, sind hier deutlich besser getrennt. Das bereits erwähnte Recall-Problem bei Chinstrap ist auch hier erkennbar.
+
+\subsection{Entscheidungsbaum}
+
+Entscheidungsbäume sind sehr gut interpretierbar, neigen aber ohne Regularisierung zu Overfitting.
+
+\begin{itemize}
+  \item Vorteile: White-Box, sehr gut erklärbar, schnelle Inferenz
+  \item Nachteile: hohe Varianz ohne Pruning, achsenparallele Splits, \emph{gierige} lokale Optimierung
+\end{itemize}
+
+\subsubsection*{Hyperparameter}
+
+\begin{table}[!htb]
+\centering
+\small
+\begin{tabular}{ll ll}
+\texttt{ccp\_alpha} & 0.0 & \texttt{max\_leaf\_nodes} & 10 \\
+\texttt{class\_weight} & null & \texttt{min\_impurity\_decrease} & 0.0 \\
+\texttt{criterion} & gini & \texttt{min\_samples\_leaf} & 1 \\
+\texttt{max\_depth} & 4 & \texttt{min\_samples\_split} & 2 \\
+\texttt{max\_features} & null & \texttt{random\_state} & 42 \\
+\texttt{splitter} & best & & \\
+\end{tabular}
+\end{table}
+
+
+
+
+
+\subsubsection*{LOOCV Feature-Permutation}
+\begin{itemize}
+  \item Features: \texttt{[bill\_length\_mm, bill\_depth\_mm, flipper\_length\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9890 $\pm$ 0.0005
+      \item \texttt{validation\_accuracy}: 0.9634 $\pm$ 0.1879
+    \end{itemize}
+  \item Features: \texttt{[bill\_length\_mm, bill\_depth\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9816 $\pm$ 0.0026
+      \item \texttt{validation\_accuracy}: 0.9707 $\pm$ 0.1687
+    \end{itemize}
+  \item Features: \texttt{[bill\_length\_mm, flipper\_length\_mm]}
+    \begin{itemize}
+      \item \texttt{train\_accuracy}: 0.9780 $\pm$ 0.0009
+      \item \texttt{validation\_accuracy}: 0.9414 $\pm$ 0.2349
+    \end{itemize}
+\end{itemize}
+
+Die Validation Accuracy der Featurekombination \texttt{bill\_length\_mm} und \texttt{bill\_depth\_mm} ist am besten und sogar besser als die anderen Modelle, die wir bisher probiert haben, und das trotz der Einschränkung von Tiefe und Anzahl der Blätter.
+
+\subsection{Manueller Entscheidungsbaum}
+\begin{figure}[!htb]
+  \centering
+  \safeimg[width=0.65\linewidth]{manual_tree.png}
+  \caption{Entscheidungsbaum (manueller Baum)}%
+  \label{fig:manual-tree}
+  \end{figure}
+\subsubsection*{Pruning und LOOCV}
+Mithilfe vom interaktiven SuperTree~\cite{supertree} wird der Baum vereinfacht, um eine klare Entscheidungslogik zu erhalten. Nach der Vereinfachung wird der Baum in~\ref{fig:manual-tree} dargestellt.
+Die finalen Regeln sehen wie folgt aus:
+\begin{itemize}
+  \item Wenn \texttt{bill\_length\_mm} $\le 43.25$ und \texttt{bill\_depth\_mm} $> 14.8$, dann \texttt{Adelie}
+  \item Wenn \texttt{bill\_length\_mm} $> 43.25$ und \texttt{bill\_depth\_mm} $> 16.45$, dann \texttt{Chinstrap}
+  \item Sonst \texttt{Gentoo}
+\end{itemize}
+
+Und damit bekommt man die folgenden LOOCV-Ergebnisse:
+\begin{itemize}
+  \item \texttt{train\_accuracy}: 0.9524 $\pm$ 0.0008
+  \item \texttt{validation\_accuracy}: 0.9524 $\pm$ 0.2130
+\end{itemize}
+Das vereinfachte Modell ist zwar etwas weniger genau, hat aber deutlich bessere Chancen, sauber zu generalisieren. Zusätzlich liegt der Fokus dieses Projekts klar auf Interpretierbarkeit. Der vereinfachte Baum ist wesentlich leichter und direkter zu verstehen als der vorherige, komplexere Baum.
+
+
+
+\textbf{Anmerkung}: Für die ausführlichen Schritte zur Baumvereinfachung sowie eine Erläuterung, warum das Feature \texttt{flipper\_length\_mm} hier keine weitere Verbesserung liefert, siehe \citep{project-website}.
+
+
+\subsubsection*{CV und Entscheidungsgrenze}
+
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{confusion matrix man.png}
+    \caption{Manueller Baum: Konfusionsmatrix (CV)}%
+    \label{fig:manual-cm}
+  \end{subfigure}
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{decision boundary man.png}
+    \caption{Manueller Baum: Entscheidungsgrenze}%
+    \label{fig:manual-db}
+  \end{subfigure}
+  \caption{Manueller Entscheidungsbaum: Konfusionsmatrix und Entscheidungsgrenze}%
+  \label{fig:manual-combined}
+\end{figure}
+
+
+\begin{itemize}
+  \item \texttt{validation\_accuracy}: 0.9526 $\pm$ 0.0327
+  \item \texttt{validation\_f1\_macro}: 0.9404 $\pm$ 0.0429
+  \item \texttt{validation\_precision\_macro}: 0.9427 $\pm$ 0.0388
+  \item \texttt{validation\_recall\_macro}: 0.9459 $\pm$ 0.0464
+\end{itemize}
+
+Das Modell zeigt kein generelles Precision Recall Problem. Es ist lediglich, ähnlich wie bei GNB, also insgesamt schwächer in der Vorhersage der Klasse Chinstrap.
+
+\subsubsection*{Entscheidungsgrenze}
+In Abbildung~\ref{fig:manual-db} sehen wir im Grunde dasselbe Problem wie bei GNB in~\ref{fig:gnb-db}, allerdings aus einem anderen Grund. Dort lag das Problem in der Annahme einer Normalverteilung. Hier liegt es an der Annahme achsenparalleler Entscheidungsgrenzen.
+
+\subsection{Modellvergleich und Auswahl}
+Abbildungen~\ref{fig:gnb-cm},~\ref{fig:knn-cm} und~\ref{fig:manual-cm} zeigen die Konfusionsmatrizen und~\ref{fig:gnb-db},~\ref{fig:knn-db} und~\ref{fig:manual-db} die Entscheidungsgrenzen der drei Modelle im Vergleich. Die Abbildung~\ref{fig:bench} zeigt, kNN schneidet insgesamt am besten ab, gefolgt vom manuellen Entscheidungsbaum, während GNB die niedrigste Performance zeigt. GNB ist dabei relativ stark biased.
+
+Der Entscheidungsbaum~\ref{fig:manual-db} hat hauptsächlich einen anderen Nachteil. Innerhalb einer Region weist er allen Punkten die gleiche Wahrscheinlichkeit zu. Dadurch bekommen auch Punkte, die sehr weit von der Entscheidungsgrenze entfernt liegen und eigentlich eindeutig zu einer Klasse gehören, keine besonders hohe Wahrscheinlichkeit, wenn die gesamte Region als weniger zuverlässig eingestuft wird.
+
+kNN hat diese beiden Nachteile nicht. Es findet eine sehr flexible Entscheidungsgrenze, ohne dabei stark zu overfitten, und ordnet jedem Punkt eine eigene Wahrscheinlichkeit zu, abhängig davon, wie nah er an der Entscheidungsgrenze liegt. Dadurch funktioniert kNN in diesem Fall sehr gut. Wegen nur zwei Features kann kNN hier sogar als eine Art Quasi White Box Modell betrachtet und relativ einfach interpretiert werden. Der eigentliche Nachteil von kNN ist die langsame Inferenz, da für jede Vorhersage alle Trainingspunkte betrachtet werden müssen.
+
+Man muss allerdings beachten, dass der Vergleich zwischen kNN und dem Entscheidungsbaum nicht ganz fair ist. {k}NN erhält hier maximale Freiheit, während der Entscheidungsbaum absichtlich manuell auf maximal drei Splits beschränkt wurde. Wir haben zuvor gesehen, dass ein Entscheidungsbaum mit vier Ebenen deutlich besser abschneidet als kNN.\@ Wenn reine Performance das wichtigste Kriterium wäre, sollte daher eher ein tieferer Entscheidungsbaum verwendet werden.
+
+Da ich mich in diesem Projekt jedoch bewusst für Einfachheit und Interpretierbarkeit entschieden habe, ist die Performance des manuellen Entscheidungsbaums dennoch sehr solide. Aus diesem Grund entscheide ich mich, weiterhin mit dem vereinfachten Entscheidungsbaum zu arbeiten.
+
+\begin{figure}[!htb]
+  \centering
+  \safeimg{benchmarks.png}
+  \caption{Benchmarking der Modelle}%
+  \label{fig:bench}
+\end{figure}
+
+\subsection{Bootstrapping}
+\begin{figure}[!htb]
+  \centering
+  \safeimg[width=0.5\linewidth]{bootstrap.png}
+  \caption{Bootstrap Verfahren (finales Modell)}%
+  \label{fig:bootstrap}
+\end{figure}
+
+Das Bootstrap Ergebnis dient ausschließlich zur Abschätzung der erwarteten Schwankungsbreite auf Basis der Trainingsdaten.
+Es wird erst nach Abschluss der Modellentscheidungen durchgeführt und nicht zur Modellwahl verwendet. Aus Abbildung~\ref{fig:bootstrap} ergibt sich das 95\%-Konfidenzintervall mit 1000 Bootstrap Samples:
+
+\begin{itemize}
+  \item \texttt{oob\_accuracy}: 0.952 [0.918 – 0.982]
+  \item \texttt{oob\_f1\_macro}: 0.941 [0.896 – 0.979]
+\end{itemize}
+
+% =========================================================
+\section{Auswertung}
+
+\subsection{Evaluation auf dem Testset}
+Jetzt ist der Moment der Wahrheit: Das finale Modell (manueller Entscheidungsbaum) wird auf dem zuvor vollständig ungenutzten Testset evaluiert. Die Ergebnisse sind in Tabelle~\ref{tab:test-results} und Abbildung~\ref{fig:test-combined} dargestellt.
+
+\begin{table}[!htb]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lrrrr}
+\toprule
+Klasse & Precision & Recall & F1-Score & Support \\
+\midrule
+Adelie & 0.9667 & 0.9667 & 0.9667 & 30 \\
+Chinstrap & 0.7500 & 0.8571 & 0.8000 & 14 \\
+Gentoo & 0.9565 & 0.8800 & 0.9167 & 25 \\
+\midrule
+Accuracy &  &  & 0.9130 & 69 \\
+Macro Avg & 0.8911 & 0.9013 & 0.8944 & 69 \\
+Weighted Avg & 0.9190 & 0.9130 & 0.9147 & 69 \\
+\bottomrule
+\end{tabular}
+\caption{Testset Ergebnisse}%
+\label{tab:test-results}
+\end{table}
+
+
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{confusion matrix test.png}
+    \caption{Konfusionsmatrix auf dem Testset}%
+    \label{fig:test-cm}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{final decision boundary.png}
+    \caption{Finale Entscheidungsgrenze (inkl.\ Testpunkte)}%
+    \label{fig:final-db}
+  \end{subfigure}
+  \caption{Finale Evaluierung auf dem Testset}%
+  \label{fig:test-combined}
+\end{figure}
+
+Die Testdaten in Abbildung~\ref{fig:final-db} zeigen Probleme an denselben Stellen wie bereits bei den Trainingsdaten, was auf Underfitting hindeutet.
+Diese Einschränkung wurde bewusst im Kauf genommen, da Interpretierbarkeit und Stabilität im Fokus stehen.
+
+\subsection{Interpretation von Fehlern}
+Wir schauen uns jetzt genauer an, warum das Modell bestimmte Fehler macht. Zum Beispiel: Warum sagt es Chinstrap, obwohl die tatsächliche Klasse Adelie ist?
+
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}{0.4\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{shap false prediction.png}
+    \caption{Eine falsche Vorhersage}%
+    \label{fig:shap-false}
+  \end{subfigure}
+  \begin{subfigure}{0.4\linewidth}
+    \centering
+    \safeimg[width=\linewidth]{shap right prediction.png}
+    \caption{Eine korrekte Vorhersage}%
+    \label{fig:shap-right}
+  \end{subfigure}
+  \caption{SHAP:\@ eine Beispielvorhersage}%
+  \label{fig:shap-example}
+\end{figure}
+Abbildung~\ref{fig:shap-example} zeigt, dass \texttt{bill\_length\_mm} eindeutig für diese falsche Vorhersage verantwortlich ist. Konkret reduziert der Wert dieses Features im Modell die Wahrscheinlichkeit für die korrekte Klasse Adelie von etwa $48\%$ auf nahezu $0\%$.
+
+\begin{figure}[!htb]
+  \centering
+  \safeimg{prediction boxplots.png}
+  \caption{Einordnung der Featurewerte (Boxplots)}%
+  \label{fig:boxplots}
+\end{figure}
+
+Abbildung~\ref{fig:boxplots} zeigt, dass der Wert von \texttt{bill\_length\_mm} deutlich näher am Chinstrap Cluster liegt als am Adelie Cluster. 
+In diesem Fall hat das Modell also tatsächlich sinnvoll entschieden, da wir intuitiv vermutlich zur gleichen Einschätzung gekommen wären.
+Man könnte überlegen, ob ein zusätzliches Feature wie \texttt{flipper\_length\_mm} dieses Problem lösen könnte. Rechter Plot (\ref{fig:boxplots}) zeigt jedoch, dass auch dieses Feature näher am Chinstrap Cluster liegt als am Adelie Cluster. Also hätte auch mit diesem Feature das Modell vermutlich dieselbe falsche Vorhersage gemacht.
+% =========================================================
+\section{Fazit}
+Ziel dieser Arbeit war es, ein Klassifikationsmodell zu entwickeln, das nicht nur gute Vorhersagen liefert, sondern vor allem gut interpretierbar ist.
+Die explorative Datenanalyse zeigte früh, dass \texttt{bill\_length\_mm} und \texttt{bill\_depth\_mm} den größten Beitrag zur Trennung der Klassen leisten.
+Im Modellvergleich schnitt kNN insgesamt am besten ab, wurde jedoch aufgrund der gewünschten Transparenz nicht als finales Modell gewählt.
+Stattdessen wurde ein manuell vereinfachter Entscheidungsbaum verwendet, der aus wenigen klaren Regeln besteht und damit direkt erklärbar bleibt.
+Die finale Evaluation auf dem Testset bestätigt die erwartete Performance und zeigt eine konsistente Fehlerstruktur.
+
+% =========================================================
+\section{Reflexion}
+Rückblickend gäbe es mehrere Strategien, die theoretisch zu besseren Ergebnissen führen könnten:
+\begin{itemize}
+  \item Oversampling zur besseren Erkennung der seltenen Klasse \texttt{Chinstrap}
+  \item Robusterer Umgang mit fehlenden Werten (Fallback Logik / separate Inferenzpfade)
+  \item Weniger starke Einschränkung des Baums, um Underfitting zu reduzieren
+\end{itemize}
+Diese Optionen wurden bewusst zugunsten einer einfachen, stabilen und transparenten Modelllogik nicht priorisiert.
+
+% =========================================================
+\bibliography{bib}
+
+\section*{Hinweis zur Nutzung von KI}
+
+Für die vorliegende Arbeit wurden KI-gestützte Werkzeuge unterstützend eingesetzt. 
+Die KI wurde ausschließlich zur sprachlichen Überarbeitung, zum Umformulieren einzelner Textpassagen sowie zur Übersetzung verwendet. 
+Zusätzlich wurde KI punktuell zur Unterstützung bei der Erstellung einzelner Code-Snippets sowie bei der Generierung von Bildern eingesetzt, 
+die jeweils im Quellcode explizit gekennzeichnet sind. 
+Die inhaltliche Ausarbeitung, Analyse und Bewertung der Ergebnisse erfolgten vollständig eigenständig durch den Autor.
+\end{document}

@@ -1,0 +1,25 @@
+# diese Datei wird verwendet, um die conda-Umgebung zu erstellen. 
+# aber für die exkakte Reproduzierbarkeit verwende bitte export.yml (erstellt mit "conda env export --no-builds > export.yml")
+
+name: penguins
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - ipykernel
+  - missingno
+  - scipy
+  - shap
+  - pip
+  - jinja2
+  - ipywidgets
+  - supertree
+  - plotly
+  - graphviz
+  - python-graphviz
+  - nbformat

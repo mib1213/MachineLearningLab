@@ -1,0 +1,1401 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palmer Penguins Klassifikation – Bericht</title>
+
+  <style>
+    :root{
+      --bg: #0b0c0f;
+      --panel: #12141a;
+      --panel2:#0f1116;
+      --text:#e8eaf0;
+      --muted:#b6bccb;
+      --line:#242a36;
+      --link:#7fb6ff;
+      --code:#0c0e13;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --maxw: 1060px;
+      --tocw: 320px;
+      --bg-accent: #12162a;
+      --navbg: rgba(18,20,26,.72);
+    }
+    html[data-theme="light"]{
+    --bg-accent: #dfe7ff;
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --panel2:#f1f3f8;
+    --text:#141824;
+    --muted:#4b5568;
+    --line:#d7deea;
+    --link:#0b63d1;
+    --code:#f2f4f8;
+    --shadow: 0 10px 25px rgba(10,16,28,.10);
+    --navbg: rgba(255,255,255,.80);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 10%, var(--bg-accent) 0%, transparent 55%), var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    a{ color: var(--link); text-decoration: none; }
+    a:hover{ text-decoration: underline; }
+
+    .wrap{
+      max-width: calc(var(--maxw) + var(--tocw));
+      margin: 0 auto;
+      padding: 28px 18px 60px;
+      display: grid;
+      grid-template-columns: var(--tocw) minmax(0, var(--maxw));
+      gap: 18px;
+      align-items: start;
+    }
+
+    header{
+      grid-column: 1 / -1;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    header h1{
+      margin: 0 0 6px;
+      font-size: 24px;
+      letter-spacing: .2px;
+    }
+    header p{
+      margin: 0;
+      color: var(--muted);
+      max-width: 90ch;
+    }
+
+    nav{
+      position: sticky;
+      top: 14px;
+      background: var(--navbg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 14px 12px;
+      box-shadow: var(--shadow);
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+    }
+
+    nav h2{
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: .25px;
+      text-transform: uppercase;
+    }
+
+    nav ul{ margin: 0; padding-left: 18px; }
+    nav li{ margin: 6px 0; color: var(--muted); }
+    nav a{ color: var(--text); }
+    nav a small{ color: var(--muted); }
+
+    main{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px 20px 30px;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3, h4{
+      scroll-margin-top: 90px;
+    }
+
+    h2{
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+    h3{
+      margin: 18px 0 8px;
+      font-size: 16px;
+    }
+    h4{
+      margin: 14px 0 6px;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: none;
+    }
+
+    p{ margin: 10px 0; }
+    .muted{ color: var(--muted); }
+
+    hr{
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 22px 0;
+    }
+
+    .note{
+      background: rgba(127,182,255,.08);
+      border: 1px solid rgba(127,182,255,.18);
+      border-radius: 12px;
+      padding: 12px 12px 10px;
+      color: var(--text);
+      margin: 12px 0;
+    }
+
+    .figure{
+      margin: 14px 0;
+      padding: 12px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .figure img{
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 10px;
+    }
+    .caption{
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      background: rgba(0,0,0,.12);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td{
+      border-bottom: 1px solid var(--line);
+      padding: 10px 10px;
+      vertical-align: top;
+    }
+    th{
+      background: rgba(255,255,255,.04);
+      text-align: left;
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 13px;
+    }
+    tr:last-child td{ border-bottom: none; }
+
+    code{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.94em;
+    }
+
+    pre{
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      margin: 12px 0;
+    }
+    pre code{
+      background: transparent;
+      border: none;
+      padding: 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+      display: block;
+      white-space: pre;
+    }
+
+    ul{ margin: 10px 0 10px 18px; }
+    li{ margin: 6px 0; }
+
+    .two-col{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .iframe-wrap{
+      background: rgba(0,0,0,.18);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    iframe{
+      width: 100%;
+      height: 680px;
+      border: 0;
+      display: block;
+      background: #fff;
+    }
+    .iframe-meta{
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      background: rgba(0,0,0,.10);
+    }
+
+    .center{ text-align: center; }
+
+    .penguin-table{
+      margin: 14px auto 18px;
+      max-width: 980px;
+      background: rgba(0,0,0,.12);
+    }
+    .penguin-table th{
+      text-align: center;
+    }
+
+    .badges img{
+      height: 22px;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 1100px){
+      .wrap{
+        grid-template-columns: 1fr;
+      }
+      nav{
+        position: relative;
+        top: 0;
+        max-height: none;
+      }
+    }
+
+    @media print{
+      body{ background: #fff; color:#111; }
+      header, nav, main{ box-shadow: none; }
+      nav{ display:none; }
+      .wrap{ grid-template-columns: 1fr; max-width: 900px; }
+      a{ color:#111; text-decoration: underline; }
+      iframe{ display:none; }
+      .iframe-meta{ display:none; }
+    }
+
+    html[data-theme="light"]{ color-scheme: light; }
+    html[data-theme="dark"]{ color-scheme: dark; }
+    header{
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px 14px;
+        align-items: start;
+    }
+
+    header h1{
+        grid-column: 1 / 2;
+    }
+
+    header p{
+        grid-column: 1 / 2;
+    }
+
+    .theme-toggle{
+        grid-column: 2 / 3;
+        align-self: start;
+        justify-self: end;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.06);
+        color: var(--text);
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        font-weight: 600;
+    }
+
+    .theme-toggle:hover{
+        background: rgba(255,255,255,.10);
+    }
+  </style>
+
+  <!-- MathJax für LaTeX Formeln wie \( ... \) -->
+  <script>
+    window.MathJax = { tex: { inlineMath: [['\\(','\\)'], ['$', '$']] } };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+
+
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Palmer Penguins Klassifikation</h1>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Theme umschalten">
+        Dark
+      </button>
+
+      <p>
+        Ziel ist ein Modell, das die Pinguinart vorhersagt, aber vor allem gut nachvollziehbar bleibt. Der Fokus liegt auf Interpretierbarkeit und sauberer Modellierung. Diese Seite entspricht inhaltlich der README, ergänzt um interaktive Visualisierungen, damit sie als vollständige Abgabe nutzbar ist.
+      </p>
+    </header>
+
+    <nav aria-label="Inhaltsverzeichnis">
+      <h2>Inhaltsverzeichnis</h2>
+      <ul>
+        <li><a href="#hintergrund">0. Hintergrund</a>
+          <ul>
+            <li><a href="#langschwanzpinguine-pygoscelis">Langschwanzpinguine (Pygoscelis)</a></li>
+            <li><a href="#schnabelmessung">Schnabelmessung</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#1-einleitung">1. Einleitung</a>
+          <ul>
+            <li><a href="#daten">Daten</a>
+              <ul>
+                <li><a href="#ueberblick-dfhead">Überblick df.head</a></li>
+              </ul>
+            </li>
+            <li><a href="#featurebeschreibung">Featurebeschreibung</a>
+              <ul>
+                <li><a href="#zielvariable">Zielvariable</a></li>
+                <li><a href="#numerische-merkmale">Numerische Merkmale</a></li>
+                <li><a href="#kategoriale-merkmale">Kategoriale Merkmale</a></li>
+              </ul>
+            </li>
+            <li><a href="#train-test-split">Train Test Split</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#2-eda">2. EDA</a>
+          <ul>
+            <li><a href="#farbcode">Farbcode</a></li>
+            <li><a href="#klassenverteilung">Klassenverteilung</a></li>
+            <li><a href="#fehlende-werte">Fehlende Werte</a></li>
+            <li><a href="#visualisierungen">Visualisierungen</a>
+              <ul>
+                <li><a href="#numerische-features">Numerische Features</a></li>
+                <li><a href="#kategorische-features">Kategorische Features</a></li>
+                <li><a href="#numerisch-x-kategorisch">Numerisch x Kategorisch</a></li>
+              </ul>
+            </li>
+            <li><a href="#korrelationsmatrix">Korrelationsmatrix</a></li>
+            <li><a href="#feature-engineering">Feature Engineering</a></li>
+            <li><a href="#outliers">Outliers</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#3-modellierung">3. Modellierung</a>
+          <ul>
+            <li><a href="#gnb">GNB</a>
+              <ul>
+                <li><a href="#loocv-gnb">LOOCV</a></li>
+                <li><a href="#cv-gnb">CV</a></li>
+                <li><a href="#entscheidungsgrenze-gnb">Entscheidungsgrenze</a></li>
+              </ul>
+            </li>
+            <li><a href="#knn">kNN</a>
+              <ul>
+                <li><a href="#auswahl-von-k">Auswahl von k</a></li>
+                <li><a href="#loocv-feature-permutation-knn">LOOCV Feature Permutation</a></li>
+                <li><a href="#shap">SHAP</a></li>
+                <li><a href="#cv-knn">CV</a></li>
+                <li><a href="#entscheidungsgrenze-knn">Entscheidungsgrenze</a></li>
+              </ul>
+            </li>
+            <li><a href="#entscheidungsbaum">Entscheidungsbaum</a>
+              <ul>
+                <li><a href="#loocv-feature-permutation-dtc">LOOCV Feature Permutation</a></li>
+                <li><a href="#visualisierung-baum">Visualisierung</a></li>
+                <li><a href="#prunen">Prunen</a></li>
+                <li><a href="#manueller-baum">Manueller Baum</a>
+                  <ul>
+                    <li><a href="#visualierung-manual">Visualierung</a></li>
+                    <li><a href="#loocv-manual">LOOCV</a></li>
+                    <li><a href="#cv-manual">CV</a></li>
+                    <li><a href="#entscheidungsgrenze-manual">Entscheidungsgrenze</a></li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+
+        <li><a href="#4-modellauswahl">4. Modellauswahl</a>
+          <ul>
+            <li><a href="#entscheidungsgrenzen">Entscheidungsgrenzen</a></li>
+            <li><a href="#konfusionsmatrizen">Konfusionsmatrizen</a></li>
+            <li><a href="#benchmarking">Benchmarking</a></li>
+            <li><a href="#bootstrapping">Bootstrapping</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#5-auswertung">5. Auswertung</a>
+          <ul>
+            <li><a href="#evaluation">Evaluation</a></li>
+            <li><a href="#interpretation">Interpretation</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#6-fazit">6. Fazit</a></li>
+        <li><a href="#7-reflexion">7. Reflexion</a></li>
+      </ul>
+
+      <hr>
+    </nav>
+
+    <main>
+      <h2 id="hintergrund">0. Hintergrund</h2>
+
+      <h3 id="langschwanzpinguine-pygoscelis">Langschwanzpinguine (Pygoscelis)</h3>
+      <p>
+        Die Langschwanzpinguine sind eine Vogelgattung innerhalb der Familie der Pinguine. Das „Langschwanz“ in ihrem Namen bezieht sich auf ihre langen, steifen Schwanzfedern. Innerhalb der Langschwanzpinguine unterscheidet man drei lebende Arten: den Eselspinguin (Gentoo), seltener auch Rotschnabelpinguin genannt, den Adeliepinguin (Adelie) und den Zügelpinguin (Chinstrap), der auch Kehlstreifpinguin genannt wird. Da diese drei Arten alle an der Antarktischen Halbinsel brüten, werden sie auch als „Antarktisches Trio“ bezeichnet.
+        <a href="https://de.wikipedia.org/wiki/Langschwanzpinguine">Wikipedia</a>
+      </p>
+
+      <table class="penguin-table" align="center">
+        <tr>
+          <th id="adelie" align="center">Adelie</th>
+          <th id="chinstrap" align="center">Chinstrap</th>
+          <th id="gentoo" align="center">Gentoo</th>
+        </tr>
+        <tr>
+          <td align="center">
+            <img src="figs/Adelie.png" alt="Adelie" style="height:220px; width:auto; object-fit:contain;" />
+          </td>
+          <td align="center">
+            <img src="figs/Chinstrap.png" alt="Chinstrap" style="height:220px; width:auto; object-fit:contain;" />
+          </td>
+          <td align="center">
+            <img src="figs/Gentoo.png" alt="Gentoo" style="height:220px; width:auto; object-fit:contain;" />
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">
+            Der Adelie Pinguin ist eher klein und kompakt gebaut. Er hat einen schwarzen Kopf mit einem deutlich sichtbaren weißen Ring um die Augen. Sein Schnabel ist kurz und kräftig.
+          </td>
+          <td valign="top">
+            Der Chinstrap Pinguin ist ungefähr so groß wie der Adelie Pinguin, lässt sich aber leicht an einem schwarzen Streifen unter dem Kinn erkennen. Dieser Streifen sieht aus wie ein Kinnriemen (Chinstrap), daher auch der Name.
+          </td>
+          <td valign="top">
+            Der Gentoo Pinguin ist der größte der drei Arten. Er hat einen langen Schnabel, der orange bis rötlich orange gefärbt ist. Auffällig sind auch seine sehr leuchtenden, orange roten Füße.
+          </td>
+        </tr>
+      </table>
+
+      <h2 id="schnabelmessung" class="center">Schnabelmessung</h2>
+      <div class="figure">
+        <img src="figs/culmen_depth.png" alt="Schnabelmessung" />
+        <div class="caption center"><em>Artwork by @allison_horst</em></div>
+      </div>
+
+      <hr>
+
+      <h2 id="1-einleitung">1. Einleitung</h2>
+      <p>
+        Unser Ziel ist es, die Pinguinart vorherzusagen. Dabei liegt der Schwerpunkt ganz klar auf einer transparenten und gut nachvollziehbaren Modellierung. Interpretierbarkeit hat Vorrang vor reiner Vorhersageleistung. Machine Learning setzen wir nur dann ein, wenn klassische, leicht nachvollziehbare statistische Verfahren an ihre Grenzen stoßen.
+      </p>
+
+      <h3 id="daten">Daten</h3>
+      <p>
+        Der Datensatz <a href="https://allisonhorst.github.io/palmerpenguins/">palmerpenguins</a> basiert auf realen Feldmessungen, die ursprünglich von
+        <a href="https://www.uaf.edu/cfos/people/faculty/detail/kristen-gorman.php">Dr. Kristen Gorman</a> im Rahmen des
+        <a href="https://pallter.marine.rutgers.edu/">Palmer Station Long Term Ecological Research (LTER) Programms</a>
+        in der Antarktis erhoben und anschließend öffentlich zur Verfügung gestellt wurden.
+      </p>
+
+      <h4 id="ueberblick-dfhead">Überblick <code>df.head</code></h4>
+      <table>
+        <thead>
+          <tr>
+            <th>species</th>
+            <th>island</th>
+            <th>bill_length_mm</th>
+            <th>bill_depth_mm</th>
+            <th>flipper_length_mm</th>
+            <th>body_mass_g</th>
+            <th>sex</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Adelie</td><td>Torgersen</td><td>39.1</td><td>18.7</td><td>181</td><td>3750</td><td>Male</td>
+          </tr>
+          <tr>
+            <td>Adelie</td><td>Torgersen</td><td>39.5</td><td>17.4</td><td>186</td><td>3800</td><td>Female</td>
+          </tr>
+          <tr>
+            <td>Adelie</td><td>Torgersen</td><td>40.3</td><td>18</td><td>195</td><td>3250</td><td>Female</td>
+          </tr>
+          <tr>
+            <td>Adelie</td><td>Torgersen</td><td>nan</td><td>nan</td><td>nan</td><td>nan</td><td>nan</td>
+          </tr>
+          <tr>
+            <td>Adelie</td><td>Torgersen</td><td>36.7</td><td>19.3</td><td>193</td><td>3450</td><td>Female</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="featurebeschreibung">Featurebeschreibung</h3>
+      <p>Der Palmer Penguins Datensatz enthält morphologische Messungen von 344 Pinguinen aus der Antarktis.</p>
+
+      <h4 id="zielvariable">Zielvariable</h4>
+      <p><strong>species</strong>: Kategoriale Zielvariable mit drei Klassen (Werte: Adelie, Chinstrap, Gentoo)</p>
+
+      <h4 id="numerische-merkmale">Numerische Merkmale</h4>
+      <ul>
+        <li><strong>bill_length_mm</strong>: Länge des Schnabels in Millimetern</li>
+        <li><strong>bill_depth_mm</strong>: Tiefe (Höhe) des Schnabels in Millimetern</li>
+        <li><strong>flipper_length_mm</strong>: Länge der Flosse in Millimetern</li>
+        <li><strong>body_mass_g</strong>: Körpergewicht in Gramm</li>
+      </ul>
+
+      <h4 id="kategoriale-merkmale">Kategoriale Merkmale</h4>
+      <ul>
+        <li><strong>sex</strong>: Geschlecht des Pinguins (Werte: male, female)</li>
+        <li><strong>island</strong>: Insel, auf der der Pinguin beobachtet wurde (Werte: Biscoe, Dream, Torgersen)</li>
+      </ul>
+
+      <h3 id="train-test-split">Train Test Split</h3>
+      <p>
+        Ganz am Anfang trennen wir das Testset (20%) stratifiziert vollständig ab, um jegliche Form von Data Leakage zu vermeiden. Im gesamten Notebook arbeiten wir ausschließlich mit den Trainingsdaten. Das Testset wird erst ganz am Ende verwendet, um die finale Modellperformance zu evaluieren.
+      </p>
+
+      <hr>
+
+      <h2 id="2-eda">2. EDA</h2>
+
+      <h3 id="farbcode">Farbcode</h3>
+      <p>In der gesamten Arbeit werden die Spezies konsistent wie folgt eingefärbt:</p>
+      <table>
+        <thead>
+          <tr><th>Spezies</th><th>Farbe</th></tr>
+        </thead>
+        <tbody class="badges">
+          <tr>
+            <td><strong>Adelie</strong></td>
+            <td><img alt="Adelie Badge" src="https://img.shields.io/badge/Adelie-%20-008fd5?style=flat-square&labelColor=008fd5"></td>
+          </tr>
+          <tr>
+            <td><strong>Chinstrap</strong></td>
+            <td><img alt="Chinstrap Badge" src="https://img.shields.io/badge/Chinstrap-%20-e5ae38?style=flat-square&labelColor=e5ae38"></td>
+          </tr>
+          <tr>
+            <td><strong>Gentoo</strong></td>
+            <td><img alt="Gentoo Badge" src="https://img.shields.io/badge/Gentoo-%20-fc4f30?style=flat-square&labelColor=fc4f30"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="klassenverteilung">Klassenverteilung</h3>
+      <div class="figure">
+        <img src="figs/image-5.png" alt="Klassenverteilung" />
+      </div>
+      <p>
+        Die Klassen sind leicht ungleich verteilt. Grundsätzlich könnte man hier Oversampling Verfahren wie <code>RandomOverSampler</code> oder <code>SMOTE</code> aus dem Package <code>imbalanced-learn</code> einsetzen, um dieses Ungleichgewicht auszugleichen. Solche Methoden bringen jedoch eigene Herausforderungen mit sich. Deshalb erscheint es sinnvoll, zunächst ohne Oversampling weiterzuarbeiten und diese Verfahren erst dann einzusetzen, wenn sich das Klassenungleichgewicht tatsächlich als relevantes Problem in der Modellperformance zeigt.
+      </p>
+
+      <h3 id="fehlende-werte">Fehlende Werte</h3>
+      <div class="figure">
+        <img src="figs/image-1.png" alt="Fehlende Werte" />
+      </div>
+      <p>
+        Wir sehen, dass für alle vier numerischen Messungen jeweils 2 Werte fehlen. Eine wichtige Frage ist dabei, ob diese fehlenden Werte zu denselben Datenpunkten gehören. Zusätzlich fehlen 11 Werte für das Feature <code>sex</code>.
+      </p>
+
+      <div class="figure">
+        <img src="figs/image-2.png" alt="MSNO Matrix" />
+        <div class="caption">MSNO Matrix</div>
+      </div>
+
+      <p>
+        Man sieht in der MSNO Matrix, dass bei denselben zwei Datenpunkten nicht nur alle vier numerischen Messungen fehlen, sondern auch das Geschlecht. Daher würde ich diese Datenpunkte einfach droppen.
+      </p>
+
+      <p>
+        In der Produktion und bei den Testdaten könnten ebenfalls fehlende Werte auftreten, das wissen wir zum jetzigen Zeitpunkt noch nicht. Solche Fälle ließen sich über eine Fallback Logik abfangen. Fehlen alle Hauptfeatures, könnte das Modell direkt die Majoritätsklasse zurückgeben, in unserem Fall <code>Adelie</code>, was immerhin in 44.15% der Fälle korrekt wäre. Dabei ist wichtig, diese Logik transparent gegenüber den Stakeholdern zu kommunizieren, damit klar ist, wie Entscheidungen im Hintergrund zustande kommen.
+      </p>
+
+      <p>
+        Alternativ könnte man in solchen Situationen bewusst eine Fehlermeldung ausgeben. Beide Ansätze vermeiden, dass durch Imputation potenziell unrealistische Werte ins Modell gelangen. In diesem Kontext ist es besser, für einzelne Datenpunkte keine Vorhersage zu liefern, als dem Modell künstliche Muster beizubringen, die in der Realität nicht existieren.
+      </p>
+
+      <p class="muted"><strong>Hinweis:</strong> Alternativ könnte man versuchen, anhand der Insel die bedingte Wahrscheinlichkeit für die Art zu schätzen oder im Preprocessing einen <em>KNNImputer</em> einsetzen, um fehlende Werte durch einigermaßen realistische Werte zu ersetzen. Da es sich aber nur um zwei Datenpunkte handelt (rund 0.727% des Datensatzes), lohnt sich dieser Aufwand praktisch nicht.</p>
+
+      <h3 id="visualisierungen">Visualisierungen</h3>
+
+      <h4 id="numerische-features">Numerische Features</h4>
+      <div class="figure">
+        <img src="figs/image-6.png" alt="Pair Plot" />
+        <div class="caption">Pair Plot</div>
+      </div>
+
+      <p>
+        Wir sehen, dass <code>bill_length_mm</code> allein schon eine ziemlich gute Trennung zwischen allen drei Arten ermöglicht. Bei den anderen Merkmalen, in denen keine <code>bill_length_mm</code> vorkommt, lässt sich zwar die Art <code>Gentoo</code> weiterhin gut unterscheiden, aber <code>Adelie</code> und <code>Chinstrap</code> überlappen stark.
+      </p>
+      <p>
+        Aus dieser Grafik können wir daher bereits vermuten, dass <code>bill_length_mm</code> ein besonders wichtiges Feature sein wird. Was wir an dieser Stelle jedoch noch nicht wissen, ist, mit welchen weiteren Merkmalen (<code>body_mass_g</code>, <code>flipper_length_mm</code>, <code>bill_depth_mm</code>) sich <code>bill_length_mm</code> am sinnvollsten kombinieren lässt, um eine möglichst robuste und gut generalisierbare Trennschärfe zu erreichen.
+      </p>
+      <p>
+        Auf der Hauptdiagonalen ist zu erkennen, dass die einzelnen Features innerhalb der jeweiligen Klassen näherungsweise normalverteilt sind.
+      </p>
+      <p>
+        Auch die kategorialen Variablen <code>sex</code> und <code>island</code> haben wir in dieser Darstellung noch nicht berücksichtigt.
+      </p>
+
+      <h4 id="kategorische-features">Kategorische Features</h4>
+      <div class="figure">
+        <img src="figs/image-7.png" alt="Cross Tab" />
+        <div class="caption">Cross Tab</div>
+      </div>
+
+      <p>
+        <strong>Grafik links</strong>: In der Stichprobe, wenn <code>island = torgersen</code>, wissen wir fast sicher, dass die Art <code>Adelie</code> ist. Außerdem sieht diese Variable ziemlich nützlich aus, aber wir wissen noch nicht, wie sie sich zusammen mit den anderen Variablen verhält.
+      </p>
+      <p>
+        <strong>Grafik rechts</strong>: Bei der Variable <code>sex</code> fällt auf, dass in dieser Stichprobe die Verteilungen für alle Arten ungefähr gleich sind. Jede Art hat ungefähr dieselbe Anzahl an männlichen und weiblichen Vögeln. Das bedeutet, dass <code>sex</code> keine Information zur Vorhersage von <code>species</code> enthält. Das werden wir uns später einmal in der Cramers V Matrix anschauen.
+      </p>
+      <p class="muted">\( \Rightarrow P(\text{species} \mid \text{sex}) \approx P(\text{species}) \)</p>
+      <p>
+        <strong>Achtung</strong>: Nur weil diese Variable keinen direkten Zusammenhang mit der Zielvariable aufweist, bedeutet das nicht, dass sie in Kombination mit anderen Merkmalen nicht dennoch nützlich sein könnte. Wir haben ihren Einfluss auf andere Features noch nicht untersucht, daher bleibt sie vorerst im Datensatz.
+      </p>
+
+      <h4 id="numerisch-x-kategorisch">Numerisch x Kategorisch</h4>
+      <div class="figure">
+        <img src="figs/image-9.png" alt="Multivariate" />
+        <div class="caption">Multivariate</div>
+      </div>
+
+      <p>In dieser Visualisierung lassen sich insgesamt sechs Dimensionen gleichzeitig darstellen:</p>
+      <ul>
+        <li><code>sex</code> in den Zeilen</li>
+        <li><code>island</code> in den Spalten</li>
+        <li><code>bill_length_mm</code> auf der x Achse</li>
+        <li><code>bill_depth_mm</code> auf der y Achse</li>
+        <li><code>body_mass_g</code> über die Punktgröße</li>
+        <li><code>species</code> über die Farbe</li>
+      </ul>
+
+      <p>
+        Bereits auf den ersten Blick wird deutlich, dass <code>sex</code> praktisch keine zusätzliche Aussagekraft besitzt, selbst in Kombination mit mehreren anderen Variablen. Auch ein klarer Einfluss von <code>body_mass_g</code> lässt sich in diesen Plots kaum erkennen.
+      </p>
+
+      <p>
+        In diesen beiden Grafiken sind damit alle relevanten Features gemeinsam sichtbar. Es zeigt sich, dass in Anwesenheit von <code>bill_length_mm</code> und <code>bill_depth_mm</code> weder <code>sex</code> noch <code>body_mass_g</code> einen nennenswerten zusätzlichen Beitrag leisten. Wir lassen daher diese beiden Variablen weg und müssen uns nicht mehr um die fehlenden Werte in <code>sex</code> kümmern.
+      </p>
+
+      <p>
+        Für <code>island</code> ist die Situation weniger eindeutig. Zwar scheint ein Zusammenhang mit der Zielvariable zu bestehen, es bleibt jedoch offen, wie stark dieses Feature im Vergleich zu den morphologischen Merkmalen tatsächlich beiträgt.
+      </p>
+
+      <p class="muted"><em>Dasselbe Muster zeigt sich auch bei <code>flipper_length_mm</code> (vgl. <a href="notebook.ipynb">notebook</a>).</em></p>
+
+      <p>
+        Als potenzielle Features verbleiben daher <code>bill_length_mm</code>, <code>bill_depth_mm</code>, <code>flipper_length_mm</code> und <code>island</code>. Diese Merkmale erscheinen ausreichend, um die Klassifikation abzubilden. Welche davon letztlich verwendet werden und in welcher Kombination, wird im weiteren Verlauf entschieden.
+      </p>
+
+      <p>
+        Zusätzlich haben wir versucht, die potenziellen Features in einem 3D Plot zu visualisieren. Dabei werden <code>bill_length_mm</code>, <code>bill_depth_mm</code> und <code>flipper_length_mm</code> gemeinsam betrachtet. In dieser Darstellung zeigt sich, dass <code>island</code> in Anwesenheit dieser drei morphologischen Merkmale kaum noch zusätzliche nützliche Informationen liefert.
+      </p>
+      <p>Auf Basis dieser Beobachtung reduzieren sich die potenziellen Features weiter auf <code>bill_length_mm</code>, <code>bill_depth_mm</code> und <code>flipper_length_mm</code>.</p>
+
+      <div class="iframe-wrap">
+        <iframe src="figs/scatter_3d_morphology.html" title="Interaktiver 3D Scatter Plot"></iframe>
+        <div class="iframe-meta">
+          Interaktive Version:
+          <a href="https://mib1213.github.io/MachineLearningLab/figs/scatter_3d_morphology.html">Link</a>
+        </div>
+      </div>
+
+      <h3 id="korrelationsmatrix">Korrelationsmatrix</h3>
+      <div class="figure">
+        <img src="figs/image-10.png" alt="Pearson Korrelationsmatrix" />
+        <div class="caption">Pearson's Korrelation</div>
+      </div>
+
+      <p>
+        Als Nächstes betrachten wir die Pearson Korrelationsmatrix der numerischen Features. Dabei wird schnell deutlich, warum <code>body_mass_g</code> in Anwesenheit anderer Merkmale kaum zusätzliche Vorhersagekraft liefert. Das Feature ist sehr stark mit <code>flipper_length_mm</code> korreliert und zeigt zudem eine deutliche Korrelation mit <code>bill_length_mm</code>. Unter diesen Umständen ist nicht zu erwarten, dass <code>body_mass_g</code> im Zusammenspiel mit diesen beiden Features noch wesentlich neue Informationen beisteuert.
+      </p>
+
+      <p>
+        Interessant ist außerdem die Korrelation zwischen <code>flipper_length_mm</code> und <code>bill_length_mm</code>, die moderat bis stark ausfällt. Das deutet darauf hin, dass beide Merkmale teilweise ähnliche Informationen tragen und gemeinsam nicht zwingend deutlich mehr beitragen als jeweils einzeln. Vor diesem Hintergrund erscheint die Kombination aus <code>bill_length_mm</code> und <code>bill_depth_mm</code> besonders sinnvoll, wenn eine Entscheidung auf nur zwei Features beschränkt werden muss.
+      </p>
+
+      <h3 id="feature-engineering">Feature Engineering</h3>
+      <p>
+        Ich habe außerdem zwei neue Features erzeugt: <code>bill_prop</code> (Verhältnis von Schnabellänge zu Schnabeltiefe) und <code>length_ratio</code> (Verhältnis von Schnabellänge zu Flipperlänge). Diese habe ich gemeinsam mit dem verbleibenden dritten Feature geplottet, um zu prüfen, ob sich die Klassen besser trennen lassen. Eine klare Verbesserung ist dabei jedoch nicht zu erkennen. Das deutet darauf hin, dass die neuen Features zwar inhaltlich sinnvoll erscheinen, aber keine zusätzlichen Informationen gegenüber den bestehenden Merkmalen liefern.
+        <em>(vgl. <a href="notebook.ipynb">notebook</a>)</em>
+      </p>
+
+      <h3 id="outliers">Outliers</h3>
+      <p>
+        Eine Analyse nach der 1,5 IQR Regel (Tukey) zeigt keine auffälligen Ausreißer in den betrachteten Features.
+        <em>(vgl. <a href="notebook.ipynb">notebook</a>)</em>
+      </p>
+
+      <hr>
+
+      <h2 id="3-modellierung">3. Modellierung</h2>
+
+      <h3 id="gnb">GNB</h3>
+      <p>Der Gaussian Naive Bayes (GNB) Klassifikator kann in dieser Anwendung sinnvoll eingesetzt werden, aus mehreren Gründen:</p>
+      <ol>
+        <li>Die verwendeten Features sind stetig</li>
+        <li>Die Feature Verteilungen gegeben der Klasse sind näherungsweise normalverteilt <em>(vgl. <a href="notebook.ipynb">notebook</a>, <a href="https://mib1213.github.io/MachineLearningLab/figs/kde_3d_surface.html">3d Plot</a>)</em></li>
+        <li>Es handelt sich um ein White Box Modell, das transparent, leicht interpretierbar und in der Praxis einfach anzuwenden ist</li>
+        <li>Das Modell basiert auf soliden theoretischen Grundlagen aus der Wahrscheinlichkeitstheorie</li>
+        <li>Die Inferenz ist sehr schnell und effizient</li>
+      </ol>
+
+      <p>Gleichzeitig besitzt Gaussian Naive Bayes auch einen zentralen Nachteil:</p>
+      <ol>
+        <li>Es wird die naive Annahme getroffen, dass die Features gegeben der Klasse unabhängig voneinander sind</li>
+      </ol>
+
+      <p>
+        Zunächst verwenden wir die beiden Features <code>bill_length_mm</code> und <code>bill_depth_mm</code>, da sie sich in der explorativen Datenanalyse als besonders geeignet erwiesen haben.
+      </p>
+      <p>
+        Wir setzen ein a priori von 1/3 an. Das heißt, wir nehmen an, dass alle drei Klassen gleich wahrscheinlich sind, unabhängig von ihrer Häufigkeit im Datensatz. Die zugrunde liegende Annahme ist dabei, dass eine größere Anzahl an Messungen für eine bestimmte Art im Datensatz nicht zwangsläufig bedeutet, dass diese Art auch in der Realität häufiger vorkommt.
+      </p>
+
+      <div class="iframe-wrap">
+        <iframe src="figs/kde_3d_surface.html" title="Interaktiver KDE 3D Plot"></iframe>
+        <div class="iframe-meta">
+          Interaktive Version:
+          <a href="https://mib1213.github.io/MachineLearningLab/figs/kde_3d_surface.html">Link</a>
+        </div>
+      </div>
+
+      <h4 id="loocv-gnb">LOOCV</h4>
+      <p>
+        Für die Evaluation verwende ich Leave One Out Kreuzvalidierung (LOOCV), da der Datensatz insgesamt relativ klein ist und LOOCV in diesem Fall einen sehr genauen Schätzer für die Generalisierungsleistung liefert.
+      </p>
+
+      <p><strong>Ergebnis</strong>:</p>
+      <ul>
+        <li><strong>train_accuracy</strong>: 0.9450 ± 0.0007</li>
+        <li><strong>validation_accuracy</strong>: 0.9414 ± 0.2349</li>
+      </ul>
+
+      <p>
+        Die Accuracy auf den Trainingsdaten und in der LOOCV Validierung ist nahezu identisch und insgesamt relativ hoch. Gleichzeitig zeigt sich eine vergleichsweise hohe Standardabweichung der Validierungs Accuracy.
+      </p>
+
+      <p>Daraus lassen sich folgende Schlüsse ziehen:</p>
+      <ul>
+        <li>Gaussian Naive Bayes passt gut zu den Daten</li>
+        <li>Das Modell generalisiert stabil und zeigt kein starkes Overfitting</li>
+        <li>Damit eignet sich GNB nicht nur als solides Basismodell, sondern hat grundsätzlich auch das Potenzial, in der Praxis eingesetzt zu werden</li>
+      </ul>
+
+      <div class="note">
+        <strong>Anmerkung zur Evaluation</strong><br>
+        In LOOCV enthält jedes Test Fold genau einen Datenpunkt. Dadurch sind klassenweise Metriken wie Precision, Recall oder F1 pro Fold nur eingeschränkt interpretierbar. Aus diesem Grund fokussiere ich mich bei LOOCV auf die Accuracy und nutze für eine aussagekräftige klassenweise Bewertung zusätzlich Stratified K Fold mit Macro F1, Macro Precision, Macro Recall und Konfusionsmatrix.
+      </div>
+
+      <h4 id="cv-gnb">CV</h4>
+      <div class="figure">
+        <img src="figs/image-14.png" alt="GNB Confusion Matrix" />
+        <div class="caption">GNB Konfusionsmatrix</div>
+      </div>
+
+      <ul>
+        <li><strong>validation_accuracy</strong>: 0.9454 ± 0.0371</li>
+        <li><strong>validation_f1_score</strong>: 0.9292 ± 0.0499</li>
+        <li><strong>validation_precision_macro</strong>: 0.9373 ± 0.0452</li>
+        <li><strong>validation_recall_macro</strong>: 0.9304 ± 0.0550</li>
+      </ul>
+
+      <p>
+        Da wir mit LOOCV kein detailliertes klassenweises Modellverhalten analysieren können, sondern im Wesentlichen nur die Accuracy betrachten, führen wir zusätzlich eine stratifizierte 10 Fold Kreuzvalidierung durch. Dadurch ist es möglich, Precision, Recall sowie die Konfusionsmatrix sinnvoll auszuwerten.
+      </p>
+
+      <p>
+        Precision und Recall liegen dabei sehr nahe beieinander. Das deutet darauf hin, dass das Modell keinen systematischen Bias in Richtung falsch positiver oder falsch negativer Vorhersagen aufweist. Die Konfusionsmatrix zeigt, dass die Klasse <code>Chinstrap</code> ist für das Modell am schwierigsten zu unterscheiden und wird häufiger mit den anderen Klassen verwechselt. Dagegen hat das Modell kaum Probleme, <code>Gentoo</code> und <code>Adelie</code> voneinander zu trennen.
+      </p>
+
+      <h4 id="entscheidungsgrenze-gnb">Entscheidungsgrenze</h4>
+      <div class="figure">
+        <img src="figs/image-13.png" alt="GNB Decision Boundary" />
+        <div class="caption">GNB Entscheidungsgrenze</div>
+      </div>
+
+      <p>
+        Hier ist die Entscheidungsgrenze des NB Modells inklusive Wahrscheinlichkeitskala dargestellt. Dabei sehen wir, dass Punkte, die weit von der Entscheidungsgrenze entfernt liegen, sehr eindeutig klassifiziert werden. Unsicherheiten treten fast ausschließlich in der Nähe der Entscheidungsgrenze auf.
+      </p>
+
+      <p>
+        Außerdem sehen wir, dass die Klasse <code>Chinstrap</code> teilweise mit den anderen Klassen überlappt. Besonders auffällig ist der Bereich etwa bei (<code>bill_length_mm</code> ≈ 55 bis 60, <code>bill_depth_mm</code> ≈ 17 bis 18). In diesem Bereich weist das Modell eine sehr hohe Vorhersagewahrscheinlichkeit für <code>Chinstrap</code> auf, teilweise nahe 1, obwohl dort vereinzelt sogar mehr Datenpunkte der Klasse <code>Gentoo</code> vorkommen.
+      </p>
+
+      <p>
+        Dieses Verhalten ist typisch für GNB. Da für jede Klasse eine Normalverteilung angenommen wird, erhalten Punkte, die weit vom jeweiligen Klassenmittelwert entfernt liegen, eine sehr geringe Wahrscheinlichkeit. Die in diesem Bereich liegenden <code>Gentoo</code> Punkte werden daher vom Modell praktisch ignoriert, da es unter der getroffenen Verteilungsannahme als sehr unwahrscheinlich gilt, dass ein <code>Gentoo</code> in diesem Bereich auftritt.
+      </p>
+
+      <hr>
+
+      <h3 id="knn">kNN</h3>
+      <p>
+        Für ein Klassifikationsproblem mit wenigen numerischen Features ist es sinnvoll, kNN auszuprobieren. Obwohl das Modell sehr einfach ist, funktioniert es in vielen Fällen erstaunlich gut und kann mit deutlich komplexeren Modellen konkurrieren.
+      </p>
+
+      <p>
+        kNN macht dabei durchaus eine Annahme. Es geht davon aus, dass Datenpunkte mit dem gleichen Label im Feature Raum nah beieinander liegen. Anders gesagt: Ähnliche Features führen zu ähnlichen Labels. Damit diese Annahme Sinn ergibt, müssen Abstände zwischen Punkten aussagekräftig sein, weshalb eine sinnvolle Skalierung der Features wichtig ist.
+      </p>
+
+      <p>
+        Ein klarer Nachteil von kNN ist, dass es in höheren Dimensionen schlecht funktioniert (Curse of Dimensionality). In unserem Fall spielt das jedoch keine große Rolle, da wir nur mit wenigen Features arbeiten.
+      </p>
+
+      <h4 id="auswahl-von-k">Auswahl von k</h4>
+      <p>
+        Wir nehmen zunächst die drei potenziellen Features <code>bill_length_mm</code>, <code>bill_depth_mm</code> und <code>flipper_length_mm</code>. Diese skalieren wir mit <code>StandardScaler()</code> (Standardisierung auf 0 Mittelwert und 1 Standardabweichung). Anschließend suchen wir das beste <em>k</em> mithilfe von LOOCV im Bereich von 1 bis 50.
+      </p>
+
+      <div class="figure">
+        <img src="figs/kNeighbors.png" alt="k Neighbors" />
+        <div class="caption">k Nachbarn</div>
+      </div>
+
+      <p>
+        Die Test Accuracy bleibt im Bereich zwischen k = 7 und k = 15 relativ stabil. Man würde hier eher k = 15 wählen, da ein etwas größeres k in der Regel besser generalisiert.
+      </p>
+
+      <h4 id="loocv-feature-permutation-knn">LOOCV Feature Permutation</h4>
+      <ul>
+        <li>
+          Features: <code>['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9744 ± 0.0006</li>
+            <li><strong>validation_accuracy</strong>: 0.9744 ± 0.1581</li>
+          </ul>
+        </li>
+        <li>
+          Features: <code>['bill_length_mm', 'bill_depth_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9669 ± 0.0009</li>
+            <li><strong>validation_accuracy</strong>: 0.9634 ± 0.1879</li>
+          </ul>
+        </li>
+        <li>
+          Features: <code>['bill_length_mm', 'flipper_length_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9526 ± 0.0011</li>
+            <li><strong>validation_accuracy</strong>: 0.9524 ± 0.2130</li>
+          </ul>
+        </li>
+      </ul>
+
+      <p>
+        Jetzt schauen wir uns die LOOCV Performance von kNN für unterschiedliche Feature Mengen an, jeweils mit dem zuvor ausgewählten k. Dabei sieht man klar, dass die beste Performance mit allen drei Features erreicht wird und das Modell dabei auch gut generalisiert. Danach folgt die Kombination aus <code>bill_length_mm</code> und <code>bill_depth_mm</code>. Am schlechtesten schneidet die Kombination aus <code>bill_length_mm</code> und <code>flipper_length_mm</code> ab.
+      </p>
+
+      <p>
+        Die Entscheidung ist damit relativ eindeutig: Wenn die Priorität auf möglichst guter Vorhersage liegt, sollten alle drei Features verwendet werden. Wenn hingegen das Modellverhalten besser verstanden werden soll und dafür so wenige Features wie möglich genutzt werden sollen, ist die Teilmenge aus <code>bill_length_mm</code> und <code>bill_depth_mm</code> eine sinnvolle Wahl.
+      </p>
+
+      <p class="muted">
+        <strong>Anmerkung</strong>: Da ich k auf denselben Trainingsdaten auswähle, auf denen ich danach LOOCV berechne, können die Ergebnisse leicht optimistisch sein. Idealerweise würde man zuerst einen Train Validation Split machen, innerhalb der Trainingsdaten per stratifizierter Kreuzvalidierung k auswählen und erst danach mit LOOCV die Modellperformance zur Feature Auswahl anschauen.
+      </p>
+
+      <h4 id="shap">SHAP</h4>
+      <p>
+        Da kNN ein Black Box Modell ist, ist es sinnvoll, ein interpretierbares Verfahren zu verwenden, um das Verhalten der Features besser zu verstehen. In diesem Fall nutze ich SHAP, da das Verfahren modellagnostisch ist und sich daher gut mit kNN kombinieren lässt. Zudem erlaubt SHAP sowohl eine globale als auch eine lokale Analyse des Modellverhaltens.
+      </p>
+
+      <p><strong>Adelie</strong></p>
+      <div class="figure"><img src="figs/shap_knn_adelie.png" alt="SHAP kNN Adelie"></div>
+
+      <p><strong>Chinstrap</strong></p>
+      <div class="figure"><img src="figs/shap_knn_chinstrap.png" alt="SHAP kNN Chinstrap"></div>
+
+      <p><strong>Gentoo</strong></p>
+      <div class="figure"><img src="figs/shap_knn_gentoo.png" alt="SHAP kNN Gentoo"></div>
+
+      <p>
+        Hier sehen wir, dass die wichtigsten Features in allen drei Klassen entweder <code>bill_length_mm</code> oder <code>bill_depth_mm</code> sind, wenn wir das Modell mit allen drei Features verwenden. Das bestätigt unseren Eindruck aus der vorherigen Analyse, dass diese beiden Merkmale wichtiger sind als <code>flipper_length_mm</code>.
+      </p>
+
+      <h4 id="cv-knn">CV</h4>
+      <div class="figure">
+        <img src="figs/knn%20confusion%20matrix.png" alt="kNN Confusion Matrix" />
+        <div class="caption">kNN Konfusionsmatrix</div>
+      </div>
+
+      <ul>
+        <li><strong>validation_accuracy</strong>: 0.9636 ± 0.0360</li>
+        <li><strong>validation_f1_macro</strong>: 0.9506 ± 0.0478</li>
+        <li><strong>validation_precision_macro</strong>: 0.9689 ± 0.0369</li>
+        <li><strong>validation_recall_macro</strong>: 0.9417 ± 0.0536</li>
+      </ul>
+
+      <p>
+        Hier sieht man, dass das Modell insgesamt gut generalisiert. Die Validation Accuracy und die Precision sind sehr hoch, während der Recall etwas schlechter ausfällt. Das bedeutet, dass das Modell mehr False Negatives produziert.
+      </p>
+
+      <p>
+        Dieses Verhalten lässt sich sehr wahrscheinlich auf die Klasse <code>Chinstrap</code> zurückführen. Das Modell übersieht diese Klasse häufiger, als dass es sie fälschlicherweise erkennt. Konkret wurde <code>Chinstrap</code> 9 Mal übersehen und nur einmal falsch vorhergesagt. Aus der Analyse mit Naive Bayes wissen wir bereits, dass diese Klasse strukturell schwieriger zu unterscheiden ist, was unter anderem auch mit ihrem geringeren Vorkommen im Datensatz zusammenhängen kann (Klassenungleichgewicht).
+      </p>
+
+      <p>
+        Falls es besonders wichtig wäre, die Klasse <code>Chinstrap</code> nicht systematisch zu übersehen, ließe sich die Klassengewichtung in dem Modell entsprechend anpassen. Da kNN jedoch keine expliziten Klassengewichte unterstützt, müsste dieser Effekt über eine Gleichgewichtung der Klassen erzeugt werden, zum Beispiel durch Oversampling der <code>Chinstrap</code> Beobachtungen. Dadurch würden Precision und Recall tendenziell ausgeglichener, allerdings möglicherweise auf Kosten der Gesamtgenauigkeit und der Generalisierungsfähigkeit.
+      </p>
+
+      <p>
+        Da die aktuelle Priorität nicht auf der maximalen Erkennung von <code>Chinstrap</code> liegt, entscheide ich mich, mit dem bestehenden Modell unverändert weiterzuarbeiten.
+      </p>
+
+      <h4 id="entscheidungsgrenze-knn">Entscheidungsgrenze</h4>
+      <div class="figure">
+        <img src="figs/knn_decision_boundary.png" alt="kNN Decision Boundary" />
+        <div class="caption">kNN Entscheidungsgrenze</div>
+      </div>
+
+      <p>
+        Hier sehen wir die Entscheidungsgrenze des Modells. Sie ist nicht so glatt wie bei GNB, schneidet insgesamt aber besser ab. Besonders deutlich wird das in den Bereichen etwa bei ([52 bis 60], [16 bis 18]) und ([45 bis 47], [20 bis 22]). Diese Punkte wurden von GNB praktisch komplett ignoriert, während kNN sie zumindest berücksichtigt, wenn auch mit geringerer Sicherheit.
+      </p>
+
+      <p>
+        Gleichzeitig sehen wir, dass das bereits diskutierte Problem mit False Negatives für die Klasse <code>Chinstrap</code> bei kNN etwas stärker ausgeprägt ist als bei GNB.
+      </p>
+
+      <hr>
+
+      <h3 id="entscheidungsbaum">Entscheidungsbaum</h3>
+      <p>
+        Es wäre eine Sünde, bei einem Klassifikationsproblem keine baumbasierten Modelle anzuschauen. Da unser Problem insgesamt relativ einfach ist, entscheide ich mich hier für das einfachste baumbasierte Modell, nämlich einen CART basierten Entscheidungsbaum.
+      </p>
+
+      <p>
+        Entscheidungsbäume haben einige klare Vorteile. Sie sind sehr gut interpretierbar, leicht nachvollziehbar und erlauben eine schnelle Inferenz. Gleichzeitig bringen sie aber auch typische Nachteile mit sich. Ohne Regularisierung neigen sie stark zum Overfitting (hohe Varianz), sie trennen immer nur entlang einer einzelnen Variable und erzeugen dadurch achsenparallele Entscheidungsgrenzen, und sie sind gierig. Das heißt, sie optimieren jeden Split lokal, was nicht zwangsläufig zu einer global optimalen Lösung führt.
+      </p>
+
+      <pre><code>ccp_alpha: 0.0
+class_weight: null
+criterion: gini # ['gini', 'entropy']
+max_depth: 4 # Baumtiefe
+max_features: null # Anzahl zufälliger Features, die bei einem Split berücksichtigt werden
+max_leaf_nodes: 10 # Anzahl Blätter
+min_impurity_decrease: 0.0
+min_samples_leaf: 1 # minimum ist 1
+min_samples_split: 2 # minimum ist 2
+min_weight_fraction_leaf: 0.0
+monotonic_cst: null
+random_state: 42
+splitter: best # ['best' -> bestes Feature + bester Schwellen, 'random' -> zufälliges Feature + bester Schwellen]</code></pre>
+
+      <p>
+        Ein Entscheidungsbaum kann immer 100% Genauigkeit erreichen, gegeben genug Freiheitsgrade. Unser Ziel ist aber, die Lösung so einfach wie möglich zu behalten. Deswegen beschränken wir den Baum bis zur Tiefe 4 und auf maximal 10 Blätter. Diese Entscheidung ist quasi unsere obere Schranke für Komplexität. Wenn er mit diesem Komplexitätsniveau mit den anderen Modellen nicht konkurrieren kann, dann sind die anderen Alternativen bereits besser.
+      </p>
+
+      <h4 id="loocv-feature-permutation-dtc">LOOCV Feature Permutation</h4>
+      <p>Wir verwenden alle 3 Featurekombinationen wie in kNN mit LOOCV:</p>
+      <ul>
+        <li>
+          Features: <code>['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9890 ± 0.0005</li>
+            <li><strong>validation_accuracy</strong>: 0.9634 ± 0.1879</li>
+          </ul>
+        </li>
+        <li>
+          Features: <code>['bill_length_mm', 'bill_depth_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9816 ± 0.0026</li>
+            <li><strong>validation_accuracy</strong>: 0.9707 ± 0.1687</li>
+          </ul>
+        </li>
+        <li>
+          Features: <code>['bill_length_mm', 'flipper_length_mm']</code>
+          <ul>
+            <li><strong>train_accuracy</strong>: 0.9780 ± 0.0009</li>
+            <li><strong>validation_accuracy</strong>: 0.9414 ± 0.2349</li>
+          </ul>
+        </li>
+      </ul>
+
+      <p>
+        Die Validation Accuracy der Featurekombination <code>bill_length_mm</code> und <code>bill_depth_mm</code> ist am besten und sogar besser als die anderen Modelle, die wir bisher probiert haben, und das trotz der Einschränkung von Tiefe und Anzahl der Blätter.
+      </p>
+
+      <h4 id="visualisierung-baum">Visualisierung</h4>
+      <div class="figure">
+        <img src="figs/tree_basic.svg" alt="Tree" />
+        <div class="caption">
+          Interaktive Version:
+          <a href="https://mib1213.github.io/MachineLearningLab/figs/supertree.html">Link</a>
+        </div>
+      </div>
+
+      <div class="iframe-wrap">
+        <iframe src="figs/supertree.html" title="Interaktiver Supertree"></iframe>
+        <div class="iframe-meta">
+          Interaktive Version:
+          <a href="https://mib1213.github.io/MachineLearningLab/figs/supertree.html">Link</a>
+        </div>
+      </div>
+
+      <p>
+        Wir sehen, dass der Baum ab der 4. Ebene im Wesentlichen versucht, nur noch einzelne Datenpunkte zu trennen.
+      </p>
+
+      <p>
+        An dieser Stelle sollten wir auf jeden Fall stoppen und anschließend überlegen, ob ein früheres Stoppen ebenfalls sinnvoll wäre und ob auf jeder Ebene tatsächlich alle Splits benötigt werden.
+      </p>
+
+      <h4 id="prunen">Prunen</h4>
+      <p><strong>Tiefe 2, Blatt 2</strong><br>
+        Dieses Blatt muss nicht weiter gesplittet werden. Die Klasse ist hier eindeutig <code>Adelie</code>, und selbst bei weiteren Splits würden sich die Klassen nicht sinnvoll trennen. An dieser Stelle sollte man daher aufhören.
+      </p>
+
+      <p><strong>Tiefe 2, Blatt 4</strong><br>
+        Auch hier ist der Split nur bedingt sinnvoll, da die Klasse überwiegend <code>Chinstrap</code> ist und sich selbst mit weiteren Splits keine klare Trennung ergibt. Ob man hier stoppt oder noch weiter splittet, ist weniger eindeutig und hängt davon ab, ob die folgenden Splits tatsächlich neue Information liefern könnten.
+      </p>
+
+      <p><strong>Tiefe 4, Blatt 7</strong><br>
+        Im <a href="https://mib1213.github.io/MachineLearningLab/figs/supertree.html">Supertree</a> sehen wir, dass es für den Baum sehr schwierig ist, diese Datenpunkte weiter zu trennen. Mit diesen beiden Features scheint es daher nicht sinnvoll zu sein, weiter zu versuchen. An dieser Stelle bietet es sich an zu prüfen, ob <code>flipper_length_mm</code> helfen kann, diese Punkte besser zu unterscheiden. Abgesehen von diesen etwa zehn Punkten lassen sich die Klassen sonst sehr gut trennen, sodass dieses zusätzliche Feature hier möglicherweise einen Mehrwert liefern könnte.
+      </p>
+
+      <div class="figure">
+        <img src="figs/pairplot%20chinstrap%20and%20adelie.png" alt="Pairplot Chinstrap and Adelie" />
+        <div class="caption">Pair Plot Chinstrap und Adelie</div>
+      </div>
+
+      <p>
+        Hier sehen wir, dass sich diese etwa 10 Datenpunkte auch mithilfe von <code>flipper_length_mm</code> nicht sinnvoll trennen lassen. Wenn überhaupt, dann noch am ehesten über <code>bill_depth_mm</code>. Das heißt: Wenn <code>bill_length_mm</code> und <code>bill_depth_mm</code> hier bereits an ihre Grenzen stoßen, liefert <code>flipper_length_mm</code> ebenfalls keinen zusätzlichen Mehrwert.
+      </p>
+
+      <p>
+        Da der Split auf <strong>Tiefe 2, Blatt 4</strong> auch mit weiteren Splits (bis zu vier Ebenen tiefer) keine saubere Trennung erreicht, ist es sinnvoll, diesen Split komplett zu entfernen.
+      </p>
+
+      <p><strong>Tiefe 1, Blatt 1</strong><br>
+        Die letzte offene Entscheidung ist, ob dieser Split überhaupt benötigt wird. Er trennt lediglich drei <code>Gentoo</code> Punkte, was zunächst nach sehr wenig aussieht. Schaut man sich den Supertree jedoch genauer an, erkennt man, dass sich diese <code>Gentoo</code> Punkte klar und mit einer großen Lücke von den anderen Klassen unterscheiden. In diesem Fall ist der Split sinnvoll und führt nicht zu Overfitting, da hier eine systematische Trennung vorliegt.
+      </p>
+
+      <h4 id="manueller-baum">Manueller Baum</h4>
+      <p>Wenn wir alle zusätzlichen Blätter entfernen, erhalten wir einen sehr einfachen und gut interpretierbaren Entscheidungsbaum:</p>
+      <ul>
+        <li>Wenn <code>bill_length_mm</code> ≤ 43.25 <strong>und</strong> <code>bill_depth_mm</code> &gt; 14.8, dann <code>Adelie</code></li>
+        <li>Wenn <code>bill_length_mm</code> &gt; 43.25 <strong>und</strong> <code>bill_depth_mm</code> &gt; 16.45, dann <code>Chinstrap</code></li>
+        <li>Sonst <code>Gentoo</code></li>
+      </ul>
+
+      <h4 id="visualierung-manual">Visualierung</h4>
+      <div class="figure">
+        <img src="figs/manueller%20Baum.svg" alt="Manual Tree" />
+        <div class="caption">Manueller Baum</div>
+      </div>
+
+      <h4 id="loocv-manual">LOOCV</h4>
+      <ul>
+        <li><strong>train_accuracy</strong>: 0.9524 ± 0.0008</li>
+        <li><strong>validation_accuracy</strong>: 0.9524 ± 0.2130</li>
+      </ul>
+
+      <p>
+        Okay, wir verlieren etwa 2% Accuracy in der LOOCV im Vergleich zum nicht vereinfachten Baum mit vier Ebenen. Das ist durchaus ein Unterschied, aber diese Ergebnisse beziehen sich ausschließlich auf die Trainingsdaten. Unser eigentliches Ziel sind zukünftige, bisher ungesehene Daten.
+      </p>
+
+      <p>
+        Das vereinfachte Modell ist zwar etwas weniger genau, hat aber deutlich bessere Chancen, sauber zu generalisieren. Zusätzlich liegt der Fokus dieses Projekts klar auf Interpretierbarkeit. Der vereinfachte Baum ist wesentlich leichter und direkter zu verstehen als der vorherige, komplexere Baum.
+      </p>
+
+      <p>
+        Aus diesen Gründen entscheide ich mich bewusst dafür, mit dem vereinfachten Modell weiterzuarbeiten.
+      </p>
+
+      <h4 id="cv-manual">CV</h4>
+      <div class="figure">
+        <img src="figs/confusion%20matrix%20man.png" alt="Confusion Matrix Manual" />
+        <div class="caption">Konfusionsmatrix</div>
+      </div>
+
+      <ul>
+        <li><strong>validation_accuracy</strong>: 0.9526 ± 0.0327</li>
+        <li><strong>validation_f1_macro</strong>: 0.9404 ± 0.0429</li>
+        <li><strong>validation_precision_macro</strong>: 0.9427 ± 0.0388</li>
+        <li><strong>validation_recall_macro</strong>: 0.9459 ± 0.0464</li>
+      </ul>
+
+      <p>
+        Das Modell zeigt kein generelles Precision Recall Problem. Es ist lediglich, ähnlich wie bei GNB, insgesamt schwächer in der Vorhersage der Klasse <code>Chinstrap</code>.
+      </p>
+
+      <h4 id="entscheidungsgrenze-manual">Entscheidungsgrenze</h4>
+      <div class="figure">
+        <img src="figs/decision%20boundary%20man.png" alt="Decision Boundary Manual Tree" />
+        <div class="caption">Entscheidungsgrenze</div>
+      </div>
+
+      <p>
+        In dieser Entscheidungsgrenze sehen wir im Grunde dasselbe Problem wie bei GNB, allerdings aus einem anderen Grund. Dort lag das Problem in der Annahme einer Normalverteilung. Hier liegt es an der Annahme achsenparalleler Entscheidungsgrenzen.
+      </p>
+
+      <p>
+        Wenn der Baum die Freiheit hätte, Entscheidungsgrenzen zu verwenden, die nicht achsenparallel sind, könnte er diese Klassen deutlich besser trennen. Da CART Entscheidungsbäume jedoch ausschließlich achsenparallele Splits erlauben, ist diese Einschränkung hier klar sichtbar.
+      </p>
+
+      <hr>
+
+      <h2 id="4-modellauswahl">4. Modellauswahl</h2>
+
+      <h3 id="entscheidungsgrenzen">Entscheidungsgrenzen</h3>
+      <div class="figure">
+        <img src="figs/all%20decision%20boundaries.png" alt="Decision Boundaries Comparison" />
+        <div class="caption">Entscheidungsgrenzen Vergleich</div>
+      </div>
+
+      <h3 id="konfusionsmatrizen">Konfusionsmatrizen</h3>
+      <div class="figure">
+        <img src="figs/confusionsmatrix.png" alt="Confusion Matrices" />
+        <div class="caption">Konfusionsmatrizen</div>
+      </div>
+
+      <p>
+        kNN zeigt für die Klasse <code>Chinstrap</code> einen vergleichsweise schlechten Recall. In diesem Punkt schneidet sogar GNB besser ab, da GNB diese Klasse seltener übersieht.
+      </p>
+
+      <h3 id="benchmarking">Benchmarking</h3>
+      <div class="figure">
+        <img src="figs/benchmarks.png" alt="Benchmarking" />
+        <div class="caption">Benchmarking</div>
+      </div>
+
+      <p>
+        kNN schneidet insgesamt am besten ab, gefolgt vom manuellen Entscheidungsbaum, während GNB die niedrigste Performance zeigt. GNB ist dabei relativ stark biased, was vor allem an der Annahme einer Normalverteilung liegt.
+      </p>
+
+      <p>
+        Der Entscheidungsbaum hat hauptsächlich einen anderen Nachteil. Innerhalb einer Region weist er allen Punkten die gleiche Wahrscheinlichkeit zu. Dadurch bekommen auch Punkte, die sehr weit von der Entscheidungsgrenze entfernt liegen und eigentlich eindeutig zu einer Klasse gehören, keine besonders hohe Wahrscheinlichkeit, wenn die gesamte Region als weniger zuverlässig eingestuft wird.
+      </p>
+
+      <p>
+        kNN hat diese beiden Nachteile nicht. Es findet eine sehr flexible Entscheidungsgrenze, ohne dabei stark zu overfitten, und ordnet jedem Punkt eine eigene Wahrscheinlichkeit zu, abhängig davon, wie nah er an der Entscheidungsgrenze liegt. Dadurch funktioniert kNN in diesem Fall sehr gut. Da wir außerdem nur mit zwei Features arbeiten, kann kNN hier sogar als eine Art Quasi White Box Modell betrachtet und relativ einfach interpretiert werden. Der eigentliche Nachteil von kNN ist die langsame Inferenz, da für jede Vorhersage alle Trainingspunkte betrachtet werden müssen. Das wird jedoch erst dann problematisch, wenn sehr viele Datenpunkte vorliegen. Unter diesen Bedingungen wäre kNN eine klare Wahl.
+      </p>
+
+      <p>
+        Man muss allerdings beachten, dass der Vergleich zwischen kNN und dem Entscheidungsbaum nicht ganz fair ist. kNN erhält hier maximale Freiheit, während der Entscheidungsbaum absichtlich manuell auf maximal drei Splits beschränkt wurde. Wir haben zuvor gesehen, dass ein Entscheidungsbaum mit vier Ebenen deutlich besser abschneidet als kNN. Wenn reine Performance das wichtigste Kriterium wäre, sollte daher eher ein tieferer Entscheidungsbaum verwendet werden.
+      </p>
+
+      <p>
+        Da ich mich in diesem Projekt jedoch bewusst für Einfachheit und Interpretierbarkeit entschieden habe, ist die Performance des manuellen Entscheidungsbaums dennoch sehr solide. Aus diesem Grund entscheide ich mich, weiterhin mit dem vereinfachten Entscheidungsbaum zu arbeiten.
+      </p>
+
+      <h3 id="bootstrapping">Bootstrapping</h3>
+      <p>
+        Zur zusätzlichen Einordnung der Modellperformance wurde einmalig das Bootstrap Verfahren mit 1000 Stichproben auf dem finalen Modell angewendet. Daraus ergeben sich folgende Schätzungen:
+      </p>
+
+      <div class="figure">
+        <img src="figs/bootstrap.png" alt="Bootstrap Verfahren" />
+        <div class="caption">Bootstrap Verfahren</div>
+      </div>
+
+      <p>
+        Das Bootstrap Ergebnis dient ausschließlich zur Abschätzung der erwarteten Schwankungsbreite der Performance auf Basis der Trainingsdaten. Es wurde bewusst erst nach Abschluss aller Modellentscheidungen durchgeführt und nicht zur weiteren Modellwahl verwendet. In diesem Sinne stellt es keinen optimistischen Bias dar, sondern eine zusätzliche Plausibilitätsprüfung, bevor die Testdaten betrachtet werden.
+      </p>
+
+      <hr>
+
+      <h2 id="5-auswertung">5. Auswertung</h2>
+
+      <h3 id="evaluation">Evaluation</h3>
+      <p>
+        Jetzt ist der Moment der Wahrheit. Wir testen nun das final ausgewählte Modell auf den Testdaten. Als finales Modell habe ich den manuell konstruierten Entscheidungsbaum gewählt.
+      </p>
+
+      <p class="muted">
+        <strong>Anmerkung</strong>: Diese Testdaten wurden bisher nicht verwendet, weder für die explorative Datenanalyse noch für die Modellierung. Aus diesem Grund sollten sie einen guten Schätzer für die Performance auf zukünftigen, bisher ungesehenen Daten liefern.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Klasse</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1-Score</th>
+            <th>Support</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Adelie</td><td>0.9667</td><td>0.9667</td><td>0.9667</td><td>30</td></tr>
+          <tr><td>Chinstrap</td><td>0.7500</td><td>0.8571</td><td>0.8000</td><td>14</td></tr>
+          <tr><td>Gentoo</td><td>0.9565</td><td>0.8800</td><td>0.9167</td><td>25</td></tr>
+          <tr><td><strong>Accuracy</strong></td><td></td><td></td><td><strong>0.9130</strong></td><td><strong>69</strong></td></tr>
+          <tr><td>Macro Avg</td><td>0.8911</td><td>0.9013</td><td>0.8944</td><td>69</td></tr>
+          <tr><td>Weighted Avg</td><td>0.9190</td><td>0.9130</td><td>0.9147</td><td>69</td></tr>
+        </tbody>
+      </table>
+
+      <div class="figure">
+        <img src="figs/confusion%20matrix%20test.png" alt="Confusion Matrix Test" />
+        <div class="caption">Konfusionsmatrix Testset</div>
+      </div>
+
+      <p>
+        Dieses Ergebnis habe ich in dieser Form bereits erwartet. Mit einem voll ausgebauten Entscheidungsbaum oder mit kNN hätten sich vermutlich bessere Ergebnisse erzielen lassen. Interessant ist zudem, dass die Test Accuracy leicht unterhalb des Bootstrap Intervalls liegt, was zunächst unerwartet war. Bei der geringen Größe des Testsets ist dieses Ergebnis jedoch gut durch zufällige Schwankungen erklärbar. Dennoch bin ich mit dem gewählten Modell zufrieden, da es eine sehr schnelle und klare Interpretierbarkeit ermöglicht.
+      </p>
+
+      <p>
+        Das folgt derselben Idee wie bei klinischen Score Modellen. Die Entscheidungslogik ist vollständig transparent, lokal interpretierbar und erlaubt es, Modellvorhersagen kritisch nachzuvollziehen, anstatt sie ungeprüft zu akzeptieren. Genau aus diesem Grund sind solche Modelle in der klinischen Praxis weit verbreitet und etabliert.
+      </p>
+
+      <div class="figure">
+        <img src="figs/final%20decision%20boundary.png" alt="Final Decision Boundary" />
+        <div class="caption">Entscheidungsgrenze des finalen Modells</div>
+      </div>
+
+      <p>
+        Die Testdaten zeigen genau an den gleichen Stellen Probleme, an denen wir auch bereits bei den Trainingsdaten Schwierigkeiten gesehen haben. Das ist ein klares Zeichen für Underfitting. Das Modell könnte diese Muster grundsätzlich lernen, wenn wir es weniger stark eingeschränkt hätten.
+      </p>
+
+      <p>
+        Wir haben uns jedoch bewusst für diese Einschränkung entschieden. Der Fokus liegt nicht auf maximaler Performance, sondern auf Einfachheit, Stabilität und guter Interpretierbarkeit.
+      </p>
+
+      <h3 id="interpretation">Interpretation</h3>
+      <p>
+        Wir schauen uns jetzt genauer an, warum das Modell bestimmte Fehler macht. Zum Beispiel: Warum sagt es 5 Mal <code>Chinstrap</code>, obwohl die tatsächliche Klasse <code>Adelie</code> ist?
+      </p>
+
+      <div class="figure">
+        <img src="figs/shap%20false%20prediction.png" alt="SHAP False Prediction" />
+        <div class="caption">SHAP Falsche Vorhersage</div>
+      </div>
+
+      <div class="figure">
+        <img src="figs/shap%20right%20prediction.png" alt="SHAP Right Prediction" />
+        <div class="caption">SHAP Richtige Vorhersage</div>
+      </div>
+
+      <p>
+        Wir sehen hier, dass <code>bill_length_mm</code> eindeutig für diese falsche Vorhersage verantwortlich ist. Konkret reduziert der Wert dieses Features im Modell die Wahrscheinlichkeit für die korrekte Klasse <code>Adelie</code> von etwa 48% auf nahezu 0%.
+      </p>
+
+      <div class="figure">
+        <img src="figs/prediction%20boxplots.png" alt="Prediction Box Plots" />
+        <div class="caption">Verteilungen</div>
+      </div>
+
+      <p>
+        Hier sehen wir, dass der Wert von <code>bill_length_mm</code> deutlich näher am <code>Chinstrap</code> Cluster liegt als am <code>Adelie</code> Cluster. In diesem Fall hat das Modell also tatsächlich sinnvoll entschieden, da wir intuitiv vermutlich zur gleichen Einschätzung gekommen wären.
+      </p>
+
+      <p>
+        Man könnte überlegen, ob ein zusätzliches Feature wie <code>flipper_length_mm</code> dieses Problem lösen könnte. Im rechten Plot sehen wir jedoch, dass auch dieses Feature näher am <code>Chinstrap</code> Cluster liegt als am <code>Adelie</code> Cluster. Das könnte sogar ein Hinweis darauf sein, dass das Label dieses Datenpunkts möglicherweise falsch ist.
+      </p>
+
+      <hr>
+
+      <h2 id="6-fazit">6. Fazit</h2>
+      <p>
+        Ziel dieser Arbeit war es, ein Klassifikationsmodell für den Palmer Penguins Datensatz zu entwickeln, das nicht nur gute Vorhersagen liefert, sondern vor allem gut interpretierbar ist. Der Fokus lag dabei absichtlich nicht auf maximaler Accuracy, sondern auf einem klar nachvollziehbaren und verständlichen Modellverhalten.
+      </p>
+
+      <p>
+        Die wenigen fehlenden Werte in relevanten Features wurden gezielt entfernt, da es sich insgesamt nur um sehr wenige Datenpunkte handelte. Für diese Entscheidung habe ich mich bewusst entschieden, da mir eine saubere Modellierung wichtiger war als für jeden einzelnen Datenpunkt eine Vorhersage zu erzwingen. Auch im Testset hätte ich fehlende Werte auf die gleiche Weise behandelt. Ausgehend von einer ausführlichen explorativen Datenanalyse habe ich anschließend verschiedene Feature Kombinationen untersucht und drei unterschiedliche Modellfamilien miteinander verglichen, nämlich Gaussian Naive Bayes, kNN und Entscheidungsbäume.
+      </p>
+
+      <p>
+        Dabei zeigte sich, dass die Merkmale <code>bill_length_mm</code> und <code>bill_depth_mm</code> den größten Beitrag zur Trennung der Klassen leisten. Weitere Features wie <code>flipper_length_mm</code>, <code>body_mass_g</code>, <code>sex</code> oder <code>island</code> lieferten entweder keine zusätzliche Information oder führten zu einer schlechteren Generalisierung.
+      </p>
+
+      <p>
+        Im Modellvergleich erzielte kNN, abgesehen von einem Entscheidungsbaum mit vier Ebenen, die beste Performance. Gleichzeitig zeigte kNN jedoch Schwächen beim Recall der Klasse <code>Chinstrap</code> und ist in der Inferenz in der Regel vergleichsweise langsam. Gaussian Naive Bayes war stark durch seine Verteilungsannahmen eingeschränkt und schnitt insbesondere bei überlappenden Klassen schlechter ab. Ein Entscheidungsbaum mit vier Ebenen funktionierte zwar am besten, wurde jedoch bewusst auf maximal drei Splits beschränkt. Dadurch entstand ein manuell vereinfachter Entscheidungsbaum, der deutlich transparenter, stabiler und einfacher zu interpretieren ist.
+      </p>
+
+      <p>
+        Das finale Modell besteht aus wenigen, klaren Entscheidungsregeln und ist damit leicht verständlich und direkt erklärbar. Die Evaluation auf dem zuvor vollständig ungenutzten Testset bestätigte die erwartete Performance und zeigte, dass die Fehlerstruktur konsistent mit den Beobachtungen aus den Trainingsdaten ist. Insgesamt erfüllt das gewählte Modell das ursprüngliche Ziel dieser Arbeit sehr gut.
+      </p>
+
+      <hr>
+
+      <h2 id="7-reflexion">7. Reflexion</h2>
+      <p>
+        Rückblickend gibt es einige Strategien, die ich hätte anders oder konsequenter umsetzen können und die theoretisch zu besseren Ergebnissen geführt hätten.
+      </p>
+
+      <ul>
+        <li>Eine naheliegende Möglichkeit wäre gewesen, die Klassen durch ein Oversampling Verfahren auszugleichen. Dadurch hätte man die Probleme mit der seltenen Klasse <code>Chinstrap</code> vermutlich deutlich reduzieren können, insbesondere im Hinblick auf den Recall</li>
+        <li>Auch der Umgang mit fehlenden Werten hätte robuster gestaltet werden können, etwa durch eine explizite Fallback Logik oder eine getrennte Inferenz Pipeline für unvollständige Beobachtungen</li>
+        <li>Ein weiterer Punkt betrifft den Umgang mit dem Feature <code>island</code>. Statt viel Zeit in die detaillierte Analyse dieses Merkmals zu investieren, hätte ich auch von Anfang an stärker von einer möglichen kontextuellen Verzerrung der Datenerhebung ausgehen und das Feature frühzeitig aus dem Modell entfernen können. Ich habe mich bewusst dagegen entschieden und <code>island</code> genauer untersucht, um die zugrunde liegenden Annahmen transparent zu machen. Am Ende zeigte sich jedoch, dass das Feature keinen ausreichenden zusätzlichen Nutzen bringt und daher ohnehin verworfen wurde</li>
+        <li>Auch beim manuellen Entscheidungsbaum wäre eine andere Strategie möglich gewesen. An einigen Stellen wurde sichtbar, dass bestimmte Splits lokal nicht optimal waren und dass zusätzliche Splits die Trennung einzelner Datenpunkte verbessert hätten, ohne zwangsläufig die Generalisierung stark zu verschlechtern. Mit einem weniger stark eingeschränkten Baum wären auf dem Testset vermutlich bessere Ergebnisse erzielbar gewesen</li>
+      </ul>
+
+      <p>
+        Diese Einschränkungen habe ich jedoch bereits während der Modellierung explizit in Kauf genommen und an den jeweiligen Stellen begründet. Ziel dieser Arbeit war es nicht, das leistungsstärkste Modell zu finden, sondern ein Modell zu entwickeln, dessen Entscheidungslogik klar, stabil und nachvollziehbar ist. Die getroffenen Entscheidungen spiegeln diesen Fokus wider, auch wenn dadurch gezielt auf einen Teil der maximal möglichen Performance verzichtet wurde.
+      </p>
+
+      <hr>
+
+    <section class="closing">
+      <h2>Nächste Schritte</h2>
+      <p class="muted">
+        Das komplette Projekt (Code, Notebook und alle Abbildungen) ist im Repository dokumentiert und reproduzierbar.
+      </p>
+      <p>
+        <a href="https://github.com/mib1213/MachineLearningLab" class="btn">Repository öffnen</a> </br>
+        <a href="https://github.com/mib1213/MachineLearningLab/blob/main/notebook.ipynb" class="btn btn-ghost">Notebook ansehen</a></br>
+        <a href="https://github.com/mib1213/MachineLearningLab/blob/main/main.pdf" class="btn btn-ghost" download>PDF herunterladen</a>
+      </p>
+    </section>
+    </main>
+  </div>
+</body>
+<script>
+  (function () {
+    const STORAGE_KEY = "theme";
+    const root = document.documentElement;
+    const btn = document.getElementById("themeToggle");
+
+    function systemPrefersLight() {
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+    }
+
+    function getInitialTheme() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === "light" || saved === "dark") return saved;
+      return systemPrefersLight() ? "light" : "dark";
+    }
+
+    function setTheme(theme) {
+      root.setAttribute("data-theme", theme);
+      localStorage.setItem(STORAGE_KEY, theme);
+      if (btn) btn.textContent = theme === "light" ? "☀️ Light" : "🌙 Dark";
+    }
+
+    function toggleTheme() {
+      const current = root.getAttribute("data-theme") || "dark";
+      setTheme(current === "dark" ? "light" : "dark");
+    }
+
+    // Initial setzen + Button-Label setzen
+    setTheme(getInitialTheme());
+
+    // Klick aktivieren
+    if (btn) btn.addEventListener("click", toggleTheme);
+
+    // Systemwechsel folgen, aber nur wenn der User NICHT manuell gewählt hat
+    const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+    if (mq && mq.addEventListener) {
+      mq.addEventListener("change", () => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved !== "light" && saved !== "dark") {
+          setTheme(systemPrefersLight() ? "light" : "dark");
+        }
+      });
+    }
+  })();
+</script>
+
+</html>

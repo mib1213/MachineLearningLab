@@ -1,0 +1,11 @@
+__pycache__/
+.DS_Store
+main.aux
+main.bbl
+main.blg
+main.log
+main.out
+main.toc
+main.fls
+main.fdb_latexmk
+main.synctex.gz
